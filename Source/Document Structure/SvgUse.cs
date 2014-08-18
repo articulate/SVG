@@ -11,10 +11,10 @@ namespace Svg
     [SvgElement("use")]
     public class SvgUse : SvgVisualElement
     {
-        private Uri _referencedElement;
+        private string _referencedElement;
 
         [SvgAttribute("xlink:href")]
-        public virtual Uri ReferencedElement
+        public virtual string ReferencedElement
         {
             get { return this._referencedElement; }
             set { this._referencedElement = value; }
