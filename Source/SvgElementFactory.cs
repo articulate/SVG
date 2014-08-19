@@ -16,7 +16,6 @@ namespace Svg
     {
         private static List<ElementInfo> availableElements;
         private const string svgNS = "http://www.w3.org/2000/svg";
-        private static Parser cssParser = new Parser();
 
         /// <summary>
         /// Gets a list of available types that can be used when creating an <see cref="SvgElement"/>.
@@ -130,6 +129,8 @@ namespace Svg
 
             while (reader.MoveToNextAttribute())
             {
+                var cssParser = new Parser();
+
                 if (reader.LocalName.Equals("style") && !(element is NonSvgElement)) 
                 {
                     var inlineSheet = cssParser.Parse("#a{" + reader.Value + "}");
