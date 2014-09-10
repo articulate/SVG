@@ -67,13 +67,12 @@ namespace Svg
             return this._path;
         }
 
-        public override RectangleF Bounds
+        public override RectangleF CalculateBounds()
         {
-            get { return this.Path(null).GetBounds(); }
+            return this.Path(null).GetBounds();
         }
 
-
-		public override SvgElement DeepCopy()
+        public override SvgElement DeepCopy()
 		{
 			return DeepCopy<SvgPolygon>();
 		}

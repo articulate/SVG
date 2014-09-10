@@ -102,7 +102,7 @@ namespace Svg
             try
             {
                 if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox) renderer.Boundable(renderingElement);
-                var origin = renderer.Boundable().Location;
+                var origin = renderer.Boundable().CalculateBounds().Location;
                 var centerPoint = CalculateCenterPoint(renderer, origin);
                 var focalPoint = CalculateFocalPoint(renderer, origin);
 
@@ -115,7 +115,7 @@ namespace Svg
                     CenterPoint = focalPoint
                 };
 
-                Debug.Assert(brush.Rectangle.Contains(renderingElement.Bounds), "Brush rectangle does not contain rendering element bounds!");
+                Debug.Assert(brush.Rectangle.Contains(renderingElement.CalculateBounds()), "Brush rectangle does not contain rendering element bounds!");
 
                 return brush;
             }
@@ -156,10 +156,10 @@ namespace Svg
                 return specifiedRadius;
             }
 
-            var topLeft = new PointF(boundable.Bounds.Left, boundable.Bounds.Top);
-            var topRight = new PointF(boundable.Bounds.Right, boundable.Bounds.Top);
-            var bottomRight = new PointF(boundable.Bounds.Right, boundable.Bounds.Bottom);
-            var bottomLeft = new PointF(boundable.Bounds.Left, boundable.Bounds.Bottom);
+            var topLeft = new PointF(boundable.CalculateBounds().Left, boundable.CalculateBounds().Top);
+            var topRight = new PointF(boundable.CalculateBounds().Right, boundable.CalculateBounds().Top);
+            var bottomRight = new PointF(boundable.CalculateBounds().Right, boundable.CalculateBounds().Bottom);
+            var bottomLeft = new PointF(boundable.CalculateBounds().Left, boundable.CalculateBounds().Bottom);
 
             var effectiveRadius = (float)Math.Ceiling(
                 Math.Max(
