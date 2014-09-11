@@ -18,7 +18,7 @@ namespace Svg
 
         public void Boundable(ISvgBoundable boundable)
         {
-            _boundables.Push(boundable);
+            _boundables.Push(new ImmutableBoundable(boundable));
         }
         public ISvgBoundable Boundable()
         {
@@ -101,15 +101,15 @@ namespace Svg
             this._innerGraphics.DrawPath(pen, path);
         }
 
-		public void RotateTransform(float fAngle, MatrixOrder order)
-		{
-			this._innerGraphics.RotateTransform(fAngle, order);
-		}
+        public void RotateTransform(float fAngle, MatrixOrder order)
+        {
+            this._innerGraphics.RotateTransform(fAngle, order);
+        }
 
-		public void RotateTransform(float fAngle)
-		{
-			this.RotateTransform(fAngle, MatrixOrder.Append);
-		}
+        public void RotateTransform(float fAngle)
+        {
+            this.RotateTransform(fAngle, MatrixOrder.Append);
+        }
 
         public void TranslateTransform(float dx, float dy, MatrixOrder order)
         {
@@ -179,17 +179,17 @@ namespace Svg
         
         public SizeF MeasureString(string text, Font font)
         {
-        	var ff = font.FontFamily;
+            var ff = font.FontFamily;
             //Baseline calculation to match http://bobpowell.net/formattingtext.aspx
-        	float ascent = ff.GetCellAscent(font.Style);
+            float ascent = ff.GetCellAscent(font.Style);
             float baselineOffset = font.SizeInPoints / ff.GetEmHeight(font.Style) * ascent;
             float baselineOffsetPixels = this._innerGraphics.DpiY / 72f * baselineOffset;
-        	
-        	StringFormat format = StringFormat.GenericTypographic;
-        	format.SetMeasurableCharacterRanges(new CharacterRange[]{new CharacterRange(0, text.Length)});
+            
+            StringFormat format = StringFormat.GenericTypographic;
+            format.SetMeasurableCharacterRanges(new CharacterRange[]{new CharacterRange(0, text.Length)});
             format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
-        	Region[] r = this._innerGraphics.MeasureCharacterRanges(text, font, new Rectangle(0, 0, 1000, 1000), format);
-        	RectangleF rect = r[0].GetBounds(this._innerGraphics);
+            Region[] r = this._innerGraphics.MeasureCharacterRanges(text, font, new Rectangle(0, 0, 1000, 1000), format);
+            RectangleF rect = r[0].GetBounds(this._innerGraphics);
 
             return new SizeF(rect.Width, baselineOffsetPixels);
         }

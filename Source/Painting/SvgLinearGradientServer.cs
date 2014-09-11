@@ -128,7 +128,7 @@ namespace Svg
 
         private bool NeedToExpandGradient(ISvgBoundable boundable, PointF specifiedStart, PointF specifiedEnd)
         {
-            return SpreadMethod == SvgGradientSpreadMethod.Pad && (boundable.Bounds.Contains(specifiedStart) || boundable.Bounds.Contains(specifiedEnd));
+            return SpreadMethod == SvgGradientSpreadMethod.Pad && (boundable.CalculateBounds().Contains(specifiedStart) || boundable.CalculateBounds().Contains(specifiedEnd));
         }
 
         public struct GradientPoints
@@ -157,21 +157,21 @@ namespace Svg
             var effectiveStart = specifiedStart;
             var effectiveEnd = specifiedEnd;
 
-            var elementDiagonal = (float)CalculateDistance(new PointF(boundable.Bounds.Left, boundable.Bounds.Top), new PointF(boundable.Bounds.Right, boundable.Bounds.Bottom));
+            var elementDiagonal = (float)CalculateDistance(new PointF(boundable.CalculateBounds().Left, boundable.CalculateBounds().Top), new PointF(boundable.CalculateBounds().Right, boundable.CalculateBounds().Bottom));
 
             var expandedStart = MovePointAlongVector(effectiveStart, specifiedUnitVector, -elementDiagonal);
             var expandedEnd = MovePointAlongVector(effectiveEnd, specifiedUnitVector, elementDiagonal);
 
-            var intersectionPoints = new LineF(expandedStart.X, expandedStart.Y, expandedEnd.X, expandedEnd.Y).Intersection(boundable.Bounds);
+            var intersectionPoints = new LineF(expandedStart.X, expandedStart.Y, expandedEnd.X, expandedEnd.Y).Intersection(boundable.CalculateBounds());
 
-            if (boundable.Bounds.Contains(specifiedStart))
+            if (boundable.CalculateBounds().Contains(specifiedStart))
             {
                 effectiveStart = CalculateClosestIntersectionPoint(expandedStart, intersectionPoints);
 
                 effectiveStart = MovePointAlongVector(effectiveStart, specifiedUnitVector, -1);
             }
 
-            if (boundable.Bounds.Contains(specifiedEnd))
+            if (boundable.CalculateBounds().Contains(specifiedEnd))
             {
                 effectiveEnd = CalculateClosestIntersectionPoint(effectiveEnd, intersectionPoints);
 
