@@ -38,5 +38,4 @@ using System.Runtime.InteropServices;
 [assembly: CLSCompliant(true)]
 
 #if DEBUG
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Svg.UnitTests")]
 #endif

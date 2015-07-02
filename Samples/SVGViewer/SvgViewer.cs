@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
@@ -43,7 +45,16 @@ namespace SVGViewer
         
         private void RenderSvg(SvgDocument svgDoc)
         {
-            svgImage.Image = svgDoc.Draw();
+            using (var fileStream = File.OpenWrite(@"C:\Users\dbackes\Desktop\test.png"))
+            {
+                svgDoc.Draw().Save(fileStream, ImageFormat.Png);
+            }
+
+            var bitmap = new Bitmap(1024, 768);
+
+            svgDoc.Draw(bitmap);
+
+            svgImage.Image = bitmap;
         }
     }
 }

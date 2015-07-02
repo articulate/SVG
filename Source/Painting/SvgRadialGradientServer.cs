@@ -101,21 +101,29 @@ namespace Svg
 
             try
             {
-                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox) renderer.Boundable(renderingElement);
-                var origin = renderer.Boundable().CalculateBounds().Location;
-                var centerPoint = CalculateCenterPoint(renderer, origin);
-                var focalPoint = CalculateFocalPoint(renderer, origin);
+                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox)
+                {
+                    renderer.Boundable(renderingElement);
+                }
 
-                var specifiedRadius = CalculateRadius(renderer);
+                var origin = renderer.Boundable().CalculateBounds().Location;
+                var centerPoint = new PointF(origin.X + CenterX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this), origin.Y + CenterY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this));
+                var focalPoint = new PointF(origin.X + FocalX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this), origin.Y + FocalY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this));
+
+                var specifiedRadius = Radius.ToDeviceValue(renderer, UnitRenderingType.Other, this);
                 var effectiveRadius = CalculateEffectiveRadius(renderingElement, centerPoint, specifiedRadius);
 
-                var brush = new PathGradientBrush(CreateGraphicsPath(origin, centerPoint, effectiveRadius))
+                var graphicsPath = CreateGraphicsPath(origin, centerPoint, effectiveRadius);
+                var brush = new PathGradientBrush(graphicsPath)
                 {
                     InterpolationColors = CalculateColorBlend(renderer, opacity, specifiedRadius, effectiveRadius),
-                    CenterPoint = focalPoint
+                    CenterPoint = focalPoint,
+                    Transform = EffectiveGradientTransform
                 };
 
-                Debug.Assert(brush.Rectangle.Contains(renderingElement.CalculateBounds()), "Brush rectangle does not contain rendering element bounds!");
+                var rectangleF = brush.Rectangle;
+                var calculateBounds = renderingElement.CalculateBounds();
+                Debug.Assert(rectangleF.Contains(calculateBounds), "Brush rectangle does not contain rendering element bounds!");
 
                 return brush;
             }

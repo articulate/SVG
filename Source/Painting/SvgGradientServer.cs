@@ -62,7 +62,18 @@ namespace Svg
         /// </summary>
         public List<SvgGradientStop> Stops
         {
-            get { return this._stops; }
+            get
+            {
+                //if (this.ID.Contains("SVGID_55") && this._stops.Count > 0)
+                //{
+                //    foreach (var svgGradientStop in _stops)
+                //    {
+                //        svgGradientStop.Colour = new SvgColourServer(System.Drawing.Color.Red);
+                //    }
+                //}
+
+                return this._stops;
+            }
         }
 
         /// <summary>
@@ -111,7 +122,7 @@ namespace Svg
             }
         }
 
-        private Matrix EffectiveGradientTransform
+        protected Matrix EffectiveGradientTransform
         {
             get
             {
