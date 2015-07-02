@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 
 namespace Svg
 {
@@ -128,6 +129,15 @@ namespace Svg
                     {
                         this.Path(renderer).FillMode = this.FillRule == SvgFillRule.NonZero ? FillMode.Winding : FillMode.Alternate;
                         renderer.FillPath(brush, this.Path(renderer));
+                        renderer.DrawPath(new Pen(System.Drawing.Color.Aqua, 20f), this.Path(renderer));
+                        var pathBrush = brush as PathGradientBrush;
+                        if (pathBrush != null)
+                        {
+                            var path = new GraphicsPath();
+                            path.AddRectangle(pathBrush.Rectangle);
+
+                            renderer.DrawPath(new Pen(System.Drawing.Color.Green, 20f), path);
+                        }
                     }
                 }
             }

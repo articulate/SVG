@@ -134,7 +134,7 @@ namespace Svg
         /// <param name="renderer">The <see cref="SvgRenderer"/> to be transformed.</param>
         protected internal override bool PushTransforms(SvgRenderer renderer)
         {
-            if (!base.PushTransforms(renderer)) return false;
+            ;if (!base.PushTransforms(renderer)) return false;
 
             if (!this.ViewBox.Equals(SvgViewBox.Empty))
             {

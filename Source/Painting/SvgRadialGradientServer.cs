@@ -106,12 +106,31 @@ namespace Svg
                     renderer.Boundable(renderingElement);
                 }
 
+                var elementBounds = renderingElement.CalculateBounds();
+
                 var origin = renderer.Boundable().CalculateBounds().Location;
+
+                var originalCenter = CalculateCenterPoint(renderer, origin);
+
                 var centerPoint = new PointF(origin.X + CenterX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this), origin.Y + CenterY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this));
                 var focalPoint = new PointF(origin.X + FocalX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this), origin.Y + FocalY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this));
 
+                var originRadius = CalculateRadius(renderer);
+
                 var specifiedRadius = Radius.ToDeviceValue(renderer, UnitRenderingType.Other, this);
                 var effectiveRadius = CalculateEffectiveRadius(renderingElement, centerPoint, specifiedRadius);
+
+                //var transformedRadiusVector = TransformVector(new PointF(effectiveRadius, 0));
+                //var transformedRadius = Math.Sqrt(Math.Pow(transformedRadiusVector.X, 2) + Math.Pow(transformedRadiusVector.Y, 2));
+                //var graphicsPath = CreateGraphicsPath(origin, TransformPoint(centerPoint), (float)transformedRadius);
+
+                var transform = EffectiveGradientTransform.Clone();
+                var bounds = renderer.Boundable().CalculateBounds();
+                transform.Multiply(renderer.Transform.Clone());
+
+                var testColorBlend = new ColorBlend();
+                testColorBlend.Positions = new[] {0f, 1f};
+                testColorBlend.Colors = new[] { System.Drawing.Color.Cyan, System.Drawing.Color.Cyan };
 
                 var graphicsPath = CreateGraphicsPath(origin, centerPoint, effectiveRadius);
                 var brush = new PathGradientBrush(graphicsPath)
@@ -121,9 +140,11 @@ namespace Svg
                     Transform = EffectiveGradientTransform
                 };
 
+                brush.TranslateTransform(originalCenter.X - centerPoint.X,originalCenter.Y - centerPoint.Y);
+
                 var rectangleF = brush.Rectangle;
                 var calculateBounds = renderingElement.CalculateBounds();
-                Debug.Assert(rectangleF.Contains(calculateBounds), "Brush rectangle does not contain rendering element bounds!");
+                //Debug.Assert(rectangleF.Contains(calculateBounds), "Brush rectangle does not contain rendering element bounds!");
 
                 return brush;
             }
