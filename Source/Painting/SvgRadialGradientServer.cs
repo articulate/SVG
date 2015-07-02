@@ -101,52 +101,44 @@ namespace Svg
 
             try
             {
-                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox)
-                {
-                    renderer.Boundable(renderingElement);
-                }
-
-                var elementBounds = renderingElement.CalculateBounds();
-
+                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox) renderer.Boundable(renderingElement);
                 var origin = renderer.Boundable().CalculateBounds().Location;
+                var centerPoint = CalculateCenterPoint(renderer, origin);
+                var focalPoint = CalculateFocalPoint(renderer, origin);
 
-                var originalCenter = CalculateCenterPoint(renderer, origin);
-
-                var centerPoint = new PointF(origin.X + CenterX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this), origin.Y + CenterY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this));
-                var focalPoint = new PointF(origin.X + FocalX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this), origin.Y + FocalY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this));
-
-                var originRadius = CalculateRadius(renderer);
-
-                var specifiedRadius = Radius.ToDeviceValue(renderer, UnitRenderingType.Other, this);
+                var specifiedRadius = CalculateRadius(renderer);
                 var effectiveRadius = CalculateEffectiveRadius(renderingElement, centerPoint, specifiedRadius);
 
-                //var transformedRadiusVector = TransformVector(new PointF(effectiveRadius, 0));
-                //var transformedRadius = Math.Sqrt(Math.Pow(transformedRadiusVector.X, 2) + Math.Pow(transformedRadiusVector.Y, 2));
-                //var graphicsPath = CreateGraphicsPath(origin, TransformPoint(centerPoint), (float)transformedRadius);
-
-                var transform = EffectiveGradientTransform.Clone();
-                var bounds = renderer.Boundable().CalculateBounds();
-                transform.Multiply(renderer.Transform.Clone());
-
-                var testColorBlend = new ColorBlend();
-                testColorBlend.Positions = new[] {0f, 1f};
-                testColorBlend.Colors = new[] { System.Drawing.Color.Cyan, System.Drawing.Color.Cyan };
-
-                var graphicsPath = CreateGraphicsPath(origin, centerPoint, effectiveRadius);
-                var brush = new PathGradientBrush(graphicsPath)
+                var brush = new PathGradientBrush(CreateGraphicsPath(origin, centerPoint, effectiveRadius))
                 {
                     InterpolationColors = CalculateColorBlend(renderer, opacity, specifiedRadius, effectiveRadius),
                     CenterPoint = focalPoint,
                     Transform = EffectiveGradientTransform
                 };
 
-                brush.TranslateTransform(originalCenter.X - centerPoint.X,originalCenter.Y - centerPoint.Y);
+                Debug.Assert(brush.Rectangle.Contains(renderingElement.CalculateBounds()), "Brush rectangle does not contain rendering element bounds!");
 
-                var rectangleF = brush.Rectangle;
-                var calculateBounds = renderingElement.CalculateBounds();
-                //Debug.Assert(rectangleF.Contains(calculateBounds), "Brush rectangle does not contain rendering element bounds!");
+                var brushRectPath = new GraphicsPath();
+                brushRectPath.AddRectangle(brush.Rectangle);
 
-                return brush;
+                var transformedRectPath = new GraphicsPath();
+                transformedRectPath.AddRectangle(brush.Rectangle);
+                transformedRectPath.Transform(brush.Transform);
+
+                var origCenter = Center(brushRectPath.GetBounds());
+                var transformedCenter = Center(transformedRectPath.GetBounds());
+
+                var xform = brush.Transform;
+                xform.Translate(origCenter.X - transformedCenter.X, origCenter.Y - transformedCenter.Y, MatrixOrder.Append);
+
+                var newPath = CreateGraphicsPath(origin, centerPoint, effectiveRadius);
+                newPath.Transform(xform);
+
+                return new PathGradientBrush(newPath)
+                {
+                    InterpolationColors = CalculateColorBlend(renderer, opacity, specifiedRadius, effectiveRadius),
+                    CenterPoint = focalPoint
+                };
             }
             finally
             {
@@ -154,11 +146,17 @@ namespace Svg
             }
         }
 
+        private static PointF Center(RectangleF rect)
+        {
+            return new PointF(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
+        }
+
         private PointF CalculateCenterPoint(SvgRenderer renderer, PointF origin)
         {
             var deviceCenterX = origin.X + CenterX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this);
             var deviceCenterY = origin.Y + CenterY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this);
             var transformedCenterPoint = TransformPoint(new PointF(deviceCenterX, deviceCenterY));
+            //renderer.Transform.TransformPoints(new []{transformedCenterPoint});
             return transformedCenterPoint;
         }
 
@@ -167,6 +165,7 @@ namespace Svg
             var deviceFocalX = origin.X + FocalX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this);
             var deviceFocalY = origin.Y + FocalY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this);
             var transformedFocalPoint = TransformPoint(new PointF(deviceFocalX, deviceFocalY));
+            //renderer.Transform.TransformPoints(new[] { transformedFocalPoint });
             return transformedFocalPoint;
         }
 

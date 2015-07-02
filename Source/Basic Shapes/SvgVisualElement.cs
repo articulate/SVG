@@ -137,6 +137,10 @@ namespace Svg
                             path.AddRectangle(pathBrush.Rectangle);
 
                             renderer.DrawPath(new Pen(System.Drawing.Color.Green, 20f), path);
+
+                            path.Transform(pathBrush.Transform);
+
+                            renderer.DrawPath(new Pen(System.Drawing.Color.Purple, 20f), path);
                         }
                     }
                 }
