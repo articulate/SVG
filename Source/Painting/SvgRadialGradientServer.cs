@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Svg
 {
@@ -109,7 +110,7 @@ namespace Svg
                 var specifiedRadius = CalculateRadius(renderer);
                 var effectiveRadius = CalculateEffectiveRadius(renderingElement, centerPoint, specifiedRadius);
 
-                var brush = new PathGradientBrush(CreateGraphicsPath(origin, centerPoint, effectiveRadius))
+                var brush = new PathGradientBrush(CreateGraphicsPath(origin, centerPoint, effectiveRadius*15f))
                 {
                     InterpolationColors = CalculateColorBlend(renderer, opacity, specifiedRadius, effectiveRadius),
                     CenterPoint = focalPoint,
@@ -121,6 +122,11 @@ namespace Svg
                 var brushRectPath = new GraphicsPath();
                 brushRectPath.AddRectangle(brush.Rectangle);
 
+                var brushRect = brush.Rectangle;
+                var vanillaPath = CreateGraphicsPath(origin, centerPoint, effectiveRadius);
+                vanillaPath.Transform(EffectiveGradientTransform);
+                var vanillaRect = vanillaPath.GetBounds();
+
                 var transformedRectPath = new GraphicsPath();
                 transformedRectPath.AddRectangle(brush.Rectangle);
                 transformedRectPath.Transform(brush.Transform);
@@ -131,7 +137,7 @@ namespace Svg
                 var xform = brush.Transform;
                 xform.Translate(origCenter.X - transformedCenter.X, origCenter.Y - transformedCenter.Y, MatrixOrder.Append);
 
-                var newPath = CreateGraphicsPath(origin, centerPoint, effectiveRadius);
+                var newPath = CreateGraphicsPath(origin, centerPoint, effectiveRadius*1.5f);
                 newPath.Transform(xform);
 
                 return new PathGradientBrush(newPath)
