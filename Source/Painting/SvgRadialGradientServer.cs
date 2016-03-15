@@ -1,5 +1,5 @@
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -95,27 +95,110 @@ namespace Svg
             Radius = new SvgUnit(SvgUnitType.Percentage, 50F);
         }
 
+        private SvgUnit NormalizeUnit(SvgUnit orig)
+        {
+            return (orig.Type == SvgUnitType.Percentage && this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox ?
+                    new SvgUnit(SvgUnitType.User, orig.Value / 100) :
+                    orig);
+        }
+
+        private Matrix EffectiveGradientTransform
+        {
+            get
+            {
+                var transform = new Matrix();
+
+                if (GradientTransform != null)
+                {
+                    transform.Multiply(GradientTransform.GetMatrix());
+                }
+                return transform;
+            }
+        }
+
         public override Brush GetBrush(SvgVisualElement renderingElement, SvgRenderer renderer, float opacity)
         {
             LoadStops(renderingElement);
 
             try
             {
-                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox) renderer.Boundable(renderingElement);
-                var origin = renderer.Boundable().CalculateBounds().Location;
-                var centerPoint = CalculateCenterPoint(renderer, origin);
-                var focalPoint = CalculateFocalPoint(renderer, origin);
+                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox) 
+                    renderer.Boundable(renderingElement);
 
-                var specifiedRadius = CalculateRadius(renderer);
-                var effectiveRadius = CalculateEffectiveRadius(renderingElement, centerPoint, specifiedRadius);
+                // Calculate the path and transform it appropriately
+                var center = new PointF(NormalizeUnit(CenterX).ToDeviceValue(renderer, UnitRenderingType.Horizontal, this),
+                                        NormalizeUnit(CenterY).ToDeviceValue(renderer, UnitRenderingType.Vertical, this));
+                var focals = new PointF[] {new PointF(NormalizeUnit(FocalX).ToDeviceValue(renderer, UnitRenderingType.Horizontal, this),
+                                                      NormalizeUnit(FocalY).ToDeviceValue(renderer, UnitRenderingType.Vertical, this)) };
+                var specifiedRadius = NormalizeUnit(Radius).ToDeviceValue(renderer, UnitRenderingType.Other, this);
+                var path = new GraphicsPath();
+                path.AddEllipse(
+                    center.X - specifiedRadius, center.Y - specifiedRadius,
+                    specifiedRadius * 2, specifiedRadius * 2
+                );
 
-                var brush = new PathGradientBrush(CreateGraphicsPath(origin, centerPoint, effectiveRadius))
+                using (var transform = EffectiveGradientTransform)
                 {
-                    InterpolationColors = CalculateColorBlend(renderer, opacity, specifiedRadius, effectiveRadius),
-                    CenterPoint = focalPoint
-                };
+                    var bounds = renderer.Boundable().CalculateBounds();
+                    transform.Translate(bounds.X, bounds.Y, MatrixOrder.Prepend);
+                    if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox)
+                    {
+                        transform.Scale(bounds.Width, bounds.Height, MatrixOrder.Prepend);
+                    }
+                    path.Transform(transform);
+                    transform.TransformPoints(focals);
+                }
 
-                Debug.Assert(brush.Rectangle.Contains(renderingElement.CalculateBounds()), "Brush rectangle does not contain rendering element bounds!");
+
+                // Calculate any required scaling
+                var scaleBounds = RectangleF.Inflate(renderingElement.CalculateBounds(), renderingElement.StrokeWidth, renderingElement.StrokeWidth);
+                var scale = CalcScale(scaleBounds, path);
+
+                // Not ideal, but this makes sure that the rest of the shape gets properly filled or drawn
+                if (scale > 1.0f && SpreadMethod == SvgGradientSpreadMethod.Pad)
+                {
+                    var stop = Stops.Last();
+                    var origColor = stop.GetColor(renderingElement);
+                    var renderColor = System.Drawing.Color.FromArgb((int)(opacity * stop.Opacity * 255), origColor);
+
+                    var origClip = renderer.Clip;
+                    try
+                    {
+                        using (var solidBrush = new SolidBrush(renderColor))
+                        {
+                            var newClip = origClip.Clone();
+                            newClip.Exclude(path);
+                            renderer.SetClip(newClip);
+
+                            var renderPath = renderingElement.Path(renderer);
+
+                            renderer.FillPath(solidBrush, renderPath);
+                        }
+                    }
+                    finally
+                    {
+                        renderer.SetClip(origClip);
+                    }
+                }
+
+                // Get the color blend and any tweak to the scaling
+                var blend = CalculateColorBlend(renderer, opacity, scale, out scale);
+
+                // Transform the path based on the scaling
+                var gradBounds = path.GetBounds();
+                var transCenter = new PointF(gradBounds.Left + gradBounds.Width / 2, gradBounds.Top + gradBounds.Height / 2);
+                using (var scaleMat = new Matrix())
+                {
+                    scaleMat.Translate(-1 * transCenter.X, -1 * transCenter.Y, MatrixOrder.Append);
+                    scaleMat.Scale(scale, scale, MatrixOrder.Append);
+                    scaleMat.Translate(transCenter.X, transCenter.Y, MatrixOrder.Append);
+                    path.Transform(scaleMat);
+                }
+
+                // calculate the brush
+                var brush = new PathGradientBrush(path);
+                brush.CenterPoint = focals[0];
+                brush.InterpolationColors = blend;
 
                 return brush;
             }
@@ -125,90 +208,116 @@ namespace Svg
             }
         }
 
-        private PointF CalculateCenterPoint(SvgRenderer renderer, PointF origin)
+        /// <summary>
+        /// Determine how much (approximately) the path must be scaled to contain the rectangle
+        /// </summary>
+        /// <param name="bounds">Bounds that the path must contain</param>
+        /// <param name="path">Path of the gradient</param>
+        /// <returns>Scale factor</returns>
+        /// <remarks>
+        /// This method continually transforms the rectangle (fewer points) until it is contained by the path
+        /// and returns the result of the search.  The scale factor is set to a constant 95%
+        /// </remarks>
+        private float CalcScale(RectangleF bounds, GraphicsPath path)
         {
-            var deviceCenterX = origin.X + CenterX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this);
-            var deviceCenterY = origin.Y + CenterY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this);
-            var transformedCenterPoint = TransformPoint(new PointF(deviceCenterX, deviceCenterY));
-            return transformedCenterPoint;
-        }
-
-        private PointF CalculateFocalPoint(SvgRenderer renderer, PointF origin)
-        {
-            var deviceFocalX = origin.X + FocalX.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this);
-            var deviceFocalY = origin.Y + FocalY.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this);
-            var transformedFocalPoint = TransformPoint(new PointF(deviceFocalX, deviceFocalY));
-            return transformedFocalPoint;
-        }
-
-        private float CalculateRadius(SvgRenderer renderer)
-        {
-            var radius = Radius.ToDeviceValue(renderer, UnitRenderingType.Other, this);
-            var transformRadiusVector = TransformVector(new PointF(radius, 0));
-            var transformedRadius = CalculateLength(transformRadiusVector);
-            return transformedRadius;
-        }
-
-        private float CalculateEffectiveRadius(ISvgBoundable boundable, PointF centerPoint, float specifiedRadius)
-        {
-            if (SpreadMethod != SvgGradientSpreadMethod.Pad)
+            var points = new PointF[] {
+                new PointF(bounds.Left, bounds.Top), 
+                new PointF(bounds.Right, bounds.Top), 
+                new PointF(bounds.Right, bounds.Bottom), 
+                new PointF(bounds.Left, bounds.Bottom) 
+            };
+            var pathBounds = path.GetBounds();
+            var pathCenter = new PointF(pathBounds.X + pathBounds.Width / 2, pathBounds.Y + pathBounds.Height / 2);
+            using (var transform = new Matrix())
             {
-                return specifiedRadius;
+                transform.Translate(-1 * pathCenter.X, -1 * pathCenter.Y, MatrixOrder.Append);
+                transform.Scale(.95f, .95f, MatrixOrder.Append);
+                transform.Translate(pathCenter.X, pathCenter.Y, MatrixOrder.Append);
+
+                while (!(path.IsVisible(points[0]) && path.IsVisible(points[1]) &&
+                         path.IsVisible(points[2]) && path.IsVisible(points[3])))
+                {
+                    var previousPoints = new PointF[] 
+										{
+												new PointF(points[0].X, points[0].Y), 
+												new PointF(points[1].X, points[1].Y), 
+												new PointF(points[2].X, points[2].Y), 
+												new PointF(points[3].X, points[3].Y) 
+										};
+
+                    transform.TransformPoints(points);
+
+                    if (Enumerable.SequenceEqual(previousPoints, points))
+                    {
+                        break;
+                    }
+                }
             }
-
-            var topLeft = new PointF(boundable.CalculateBounds().Left, boundable.CalculateBounds().Top);
-            var topRight = new PointF(boundable.CalculateBounds().Right, boundable.CalculateBounds().Top);
-            var bottomRight = new PointF(boundable.CalculateBounds().Right, boundable.CalculateBounds().Bottom);
-            var bottomLeft = new PointF(boundable.CalculateBounds().Left, boundable.CalculateBounds().Bottom);
-
-            var effectiveRadius = (float)Math.Ceiling(
-                Math.Max(
-                    Math.Max(
-                        CalculateDistance(centerPoint, topLeft),
-                        CalculateDistance(centerPoint, topRight)
-                    ),
-                    Math.Max(
-                        CalculateDistance(centerPoint, bottomRight),
-                        CalculateDistance(centerPoint, bottomLeft)
-                    )
-                )
-            );
-
-            effectiveRadius = Math.Max(effectiveRadius, specifiedRadius);
-
-            return effectiveRadius;
+            return bounds.Height / (points[2].Y - points[1].Y);
         }
 
-        private static GraphicsPath CreateGraphicsPath(PointF origin, PointF centerPoint, float effectiveRadius)
-        {
-            var path = new GraphicsPath();
-
-            path.AddEllipse(
-                origin.X + centerPoint.X - effectiveRadius,
-                origin.Y + centerPoint.Y - effectiveRadius,
-                effectiveRadius * 2,
-                effectiveRadius * 2
-            );
-
-            return path;
-        }
-
-        private ColorBlend CalculateColorBlend(SvgRenderer renderer, float opacity, float specifiedRadius, float effectiveRadius)
+        private ColorBlend CalculateColorBlend(SvgRenderer renderer, float opacity, float scale, out float outScale)
         {
             var colorBlend = GetColorBlend(renderer, opacity, true);
+            float newScale;
+            List<float> pos;
+            List<Color> colors;
 
-            if (specifiedRadius >= effectiveRadius)
+            outScale = scale;
+            if (scale > 1)
             {
-                return colorBlend;
-            }
+                switch (this.SpreadMethod)
+                {
+                    case SvgGradientSpreadMethod.Reflect:
+                        newScale = (float)Math.Ceiling(scale);
+                        pos = (from p in colorBlend.Positions select 1 + (p - 1) / newScale).ToList();
+                        colors = colorBlend.Colors.ToList();
 
-            for (var i = 0; i < colorBlend.Positions.Length - 1; i++)
-            {
-                colorBlend.Positions[i] = 1 - (specifiedRadius / effectiveRadius) * (1 - colorBlend.Positions[i]);
-            }
+                        for (var i = 1; i < newScale; i++)
+                        {
+                            if (i % 2 == 1)
+                            {
+                                for (int j = 1; j < colorBlend.Positions.Length; j++)
+                                {
+                                    pos.Insert(0, (newScale - i - 1) / newScale + 1 - colorBlend.Positions[j]);
+                                    colors.Insert(0, colorBlend.Colors[j]);
+                                }
+                            }
+                            else
+                            {
+                                for (int j = 0; j < colorBlend.Positions.Length - 1; j++)
+                                {
+                                    pos.Insert(j, (newScale - i - 1) / newScale + colorBlend.Positions[j]);
+                                    colors.Insert(j, colorBlend.Colors[j]);
+                                }
+                            }
+                        }
 
-            colorBlend.Positions = new[] { 0F }.Concat(colorBlend.Positions).ToArray();
-            colorBlend.Colors = new[] { colorBlend.Colors.First() }.Concat(colorBlend.Colors).ToArray();
+                        colorBlend.Positions = pos.ToArray();
+                        colorBlend.Colors = colors.ToArray();
+                        outScale = newScale;
+                        break;
+                    case SvgGradientSpreadMethod.Repeat:
+                        newScale = (float)Math.Ceiling(scale);
+                        pos = (from p in colorBlend.Positions select p / newScale).ToList();
+                        colors = colorBlend.Colors.ToList();
+
+                        for (var i = 1; i < newScale; i++)
+                        {
+                            pos.AddRange(from p in colorBlend.Positions select (i + (p <= 0 ? 0.001f : p)) / newScale);
+                            colors.AddRange(colorBlend.Colors);
+                        }
+
+                        colorBlend.Positions = pos.ToArray();
+                        colorBlend.Colors = colors.ToArray();
+                        outScale = newScale;
+                        break;
+                    default:
+                        outScale = 1.0f;
+
+                        break;
+                }
+            }
 
             return colorBlend;
         }

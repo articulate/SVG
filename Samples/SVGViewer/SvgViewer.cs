@@ -44,6 +44,9 @@ namespace SVGViewer
         private void RenderSvg(SvgDocument svgDoc)
         {
             svgImage.Image = svgDoc.Draw();
+
+            string outputDir = Path.GetDirectoryName(svgDoc.BaseUri == null ? Application.ExecutablePath : svgDoc.BaseUri.LocalPath);
+            svgImage.Image.Save(Path.Combine(outputDir, "output.png"));
         }
     }
 }
