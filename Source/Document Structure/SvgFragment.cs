@@ -22,7 +22,7 @@ namespace Svg
 
         private SvgUnit _x;
         private SvgUnit _y;
-        
+
         /// <summary>
         /// Gets or sets the position where the left point of the svg should start.
         /// </summary>
@@ -96,7 +96,7 @@ namespace Svg
             get { return this.Attributes.GetAttribute<SvgViewBox>("viewBox"); }
             set { this.Attributes["viewBox"] = value; }
         }
-        
+
         /// <summary>
         /// Gets or sets the aspect of the viewport.
         /// </summary>
@@ -269,19 +269,19 @@ namespace Svg
                 }
             }
 
-            if (isWidthperc) 
+            if (isWidthperc)
             {
-                w = (bounds.Width + bounds.X) * (Width.Value * 0.01f);
+                w = bounds.Width * (Width.Value * 0.01f);
             }
             else
             {
                 w = Width.ToDeviceValue(null, UnitRenderingType.Horizontal, this);
             }
-            if (isHeightperc) 
+            if (isHeightperc)
             {
-                h = (bounds.Height + bounds.Y) * (Height.Value * 0.01f);
+                h = bounds.Height * (Height.Value * 0.01f);
             }
-            else 
+            else
             {
                 h = Height.ToDeviceValue(null, UnitRenderingType.Vertical, this);
             }
