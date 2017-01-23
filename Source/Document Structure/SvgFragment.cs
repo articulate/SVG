@@ -143,8 +143,8 @@ namespace Svg
 
                 var fScaleX = width / this.ViewBox.Width;
                 var fScaleY = height / this.ViewBox.Height;
-                var fMinX = -this.ViewBox.MinX;
-                var fMinY = -this.ViewBox.MinY;
+                var fMinX = -this.ViewBox.MinX * fScaleX;
+                var fMinY = -this.ViewBox.MinY * fScaleY;
 
                 if (AspectRatio.Align != SvgPreserveAspectRatio.none)
                 {
@@ -204,9 +204,9 @@ namespace Svg
                 var y = _y.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
 
                 renderer.AddClip(new Region(new RectangleF(x, y, width, height)));
+                renderer.TranslateTransform(x, y, MatrixOrder.Prepend);
+                renderer.TranslateTransform(fMinX, fMinY, MatrixOrder.Prepend);
                 renderer.ScaleTransform(fScaleX, fScaleY, MatrixOrder.Prepend);
-                renderer.TranslateTransform(x,y);
-                renderer.TranslateTransform(fMinX, fMinY);
             }
 
             return true;
