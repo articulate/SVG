@@ -75,9 +75,7 @@
     <DebugSymbols>false</DebugSymbols>
     <DocumentationFile>bin\Release\Svg.XML</DocumentationFile>
     <SignAssembly>true</SignAssembly>
-  </PropertyGroup>
-  <PropertyGroup>
-    <AssemblyOriginatorKeyFile>svgkey.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>$(SolutionDir)\svgkey.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -325,10 +323,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Basic Shapes\DOM.cd" />
-    <None Include="svgkey.snk" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>
