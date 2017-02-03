@@ -22,7 +22,7 @@ namespace Svg
 
         private SvgUnit _x;
         private SvgUnit _y;
-        
+
         /// <summary>
         /// Gets or sets the position where the left point of the svg should start.
         /// </summary>
@@ -96,7 +96,7 @@ namespace Svg
             get { return this.Attributes.GetAttribute<SvgViewBox>("viewBox"); }
             set { this.Attributes["viewBox"] = value; }
         }
-        
+
         /// <summary>
         /// Gets or sets the aspect of the viewport.
         /// </summary>
@@ -143,8 +143,8 @@ namespace Svg
 
                 var fScaleX = width / this.ViewBox.Width;
                 var fScaleY = height / this.ViewBox.Height;
-                var fMinX = -this.ViewBox.MinX;
-                var fMinY = -this.ViewBox.MinY;
+                var fMinX = -this.ViewBox.MinX * fScaleX;
+                var fMinY = -this.ViewBox.MinY * fScaleY;
 
                 if (AspectRatio.Align != SvgPreserveAspectRatio.none)
                 {
@@ -204,9 +204,9 @@ namespace Svg
                 var y = _y.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
 
                 renderer.AddClip(new Region(new RectangleF(x, y, width, height)));
+                renderer.TranslateTransform(x, y, MatrixOrder.Prepend);
+                renderer.TranslateTransform(fMinX, fMinY, MatrixOrder.Prepend);
                 renderer.ScaleTransform(fScaleX, fScaleY, MatrixOrder.Prepend);
-                renderer.TranslateTransform(x,y);
-                renderer.TranslateTransform(fMinX, fMinY);
             }
 
             return true;
@@ -269,19 +269,19 @@ namespace Svg
                 }
             }
 
-            if (isWidthperc) 
+            if (isWidthperc)
             {
-                w = (bounds.Width + bounds.X) * (Width.Value * 0.01f);
+                w = bounds.Width * (Width.Value * 0.01f);
             }
             else
             {
                 w = Width.ToDeviceValue(null, UnitRenderingType.Horizontal, this);
             }
-            if (isHeightperc) 
+            if (isHeightperc)
             {
-                h = (bounds.Height + bounds.Y) * (Height.Value * 0.01f);
+                h = bounds.Height * (Height.Value * 0.01f);
             }
-            else 
+            else
             {
                 h = Height.ToDeviceValue(null, UnitRenderingType.Vertical, this);
             }
