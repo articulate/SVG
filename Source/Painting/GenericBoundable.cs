@@ -19,7 +19,7 @@ namespace Svg
             _rect = new RectangleF(x, y, width, height);
         }
 
-        public RectangleF CalculateBounds()
+        public System.Drawing.RectangleF CalculateBounds()
         {
             return _rect;
         }

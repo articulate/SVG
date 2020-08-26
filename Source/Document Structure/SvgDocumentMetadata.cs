@@ -11,52 +11,52 @@ namespace Svg
     [SvgElement("metadata")]
     public class SvgDocumentMetadata : SvgElement
     {
-	//	private string _metadata; 
+        //private string _metadata;
 
 
         /// <summary>
-		/// Initializes a new instance of the <see cref="SvgDocumentMetadata"/> class.
+        /// Initializes a new instance of the <see cref="SvgDocumentMetadata"/> class.
         /// </summary>
-		public SvgDocumentMetadata()
+        public SvgDocumentMetadata()
         {
-        	Content = "";
+            Content = "";
         }
 
 
-		//public string Metadata
-		//{
-		//    get { return _metadata; }
-		//    set { _metadata = value; }
-		//}
+        //public string Metadata
+        //{
+        //    get { return _metadata; }
+        //    set { _metadata = value; }
+        //}
 
 
         /// <summary>
-        /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="SvgRenderer"/> object.
+        /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="ISvgRenderer"/> object.
         /// </summary>
-        /// <param name="renderer">The <see cref="SvgRenderer"/> object to render to.</param>
-        protected override void Render(SvgRenderer renderer)
+        /// <param name="renderer">The <see cref="ISvgRenderer"/> object to render to.</param>
+        protected override void Render(ISvgRenderer renderer)
         {
             // Do nothing. Children should NOT be rendered.
         }
 
-		protected override void WriteChildren(XmlTextWriter writer)
-		{
-			writer.WriteRaw(this.Content); //write out metadata as is
-		}
+        protected override void WriteChildren(XmlTextWriter writer)
+        {
+            writer.WriteRaw(this.Content); //write out metadata as is
+        }
 
 
-		public override SvgElement DeepCopy()
-		{
-			return DeepCopy<SvgDocumentMetadata>();
-		}
+        public override SvgElement DeepCopy()
+        {
+            return DeepCopy<SvgDocumentMetadata>();
+        }
 
-		public override void InitialiseFromXML(XmlTextReader reader, SvgDocument document)
-		{
-			base.InitialiseFromXML(reader, document);
+        public override void InitialiseFromXML(XmlTextReader reader, SvgDocument document)
+        {
+            base.InitialiseFromXML(reader, document);
 
-			//read in the metadata just as a string ready to be written straight back out again
-			Content = reader.ReadInnerXml();
-		}
+            //read in the metadata just as a string ready to be written straight back out again
+            Content = reader.ReadInnerXml();
+        }
 
     }
 }

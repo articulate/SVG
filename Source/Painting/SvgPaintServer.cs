@@ -13,23 +13,28 @@ namespace Svg
     [TypeConverter(typeof(SvgPaintServerFactory))]
     public abstract class SvgPaintServer : SvgElement
     {
+        public Func<SvgPaintServer> GetCallback { get; set; }
+
         /// <summary>
         /// An unspecified <see cref="SvgPaintServer"/>.
         /// </summary>
         public static readonly SvgPaintServer None = new SvgColourServer();
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SvgPaintServer"/> class.
+        /// A <see cref="SvgPaintServer"/> that should inherit from its parent.
         /// </summary>
-        public SvgPaintServer()
-        {
-        }
+        public static readonly SvgPaintServer Inherit = new SvgColourServer();
 
         /// <summary>
-        /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="SvgRenderer"/> object.
+        /// An unspecified <see cref="SvgPaintServer"/>.
         /// </summary>
-        /// <param name="renderer">The <see cref="SvgRenderer"/> object to render to.</param>
-        protected override void Render(SvgRenderer renderer)
+        public static readonly SvgPaintServer NotSet = new SvgColourServer();
+
+        /// <summary>
+        /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="ISvgRenderer"/> object.
+        /// </summary>
+        /// <param name="renderer">The <see cref="ISvgRenderer"/> object to render to.</param>
+        protected override void Render(ISvgRenderer renderer)
         {
             // Never render paint servers or their children
         }
@@ -38,8 +43,10 @@ namespace Svg
         /// Gets a <see cref="Brush"/> representing the current paint server.
         /// </summary>
         /// <param name="styleOwner">The owner <see cref="SvgVisualElement"/>.</param>
+        /// <param name="renderer">The renderer object.</param>
         /// <param name="opacity">The opacity of the brush.</param>
-        public abstract Brush GetBrush(SvgVisualElement styleOwner, SvgRenderer renderer, float opacity);
+        /// <param name="forStroke">Not used.</param>
+        public abstract Brush GetBrush(SvgVisualElement styleOwner, ISvgRenderer renderer, float opacity, bool forStroke = false);
 
         /// <summary>
         /// Returns a <see cref="T:System.String"/> that represents the current <see cref="T:System.Object"/>.
@@ -51,8 +58,5 @@ namespace Svg
         {
             return String.Format("url(#{0})", this.ID);
         }
-
-
-
     }
 }

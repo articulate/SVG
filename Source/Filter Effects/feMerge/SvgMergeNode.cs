@@ -1,28 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Text;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
-
 namespace Svg.FilterEffects
 {
-
-	[SvgElement("feMergeNode")]
-    public class SvgMergeNode : SvgFilterPrimitive
+    [SvgElement("feMergeNode")]
+    public class SvgMergeNode : SvgElement
     {
-        public override Bitmap Process()
+        [SvgAttribute("in")]
+        public string Input
         {
-            //Todo
-
-            return null;
+            get { return GetAttribute<string>("in", false); }
+            set { Attributes["in"] = value; }
         }
 
-		public override SvgElement DeepCopy()
-		{
-			throw new NotImplementedException();
-		}
-
+        public override SvgElement DeepCopy()
+        {
+            return DeepCopy<SvgMergeNode>();
+        }
     }
 }

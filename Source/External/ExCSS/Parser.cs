@@ -1,14 +1,36 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using ExCSS.Model;
-using ExCSS.Model.TextBlocks;
+using Svg.ExCSS.Model;
+using Svg.ExCSS.Model.TextBlocks;
 
 // ReSharper disable once CheckNamespace
 using System;
 
+//The MIT License (MIT)
 
-namespace ExCSS
+//Copyright (c) [year] [fullname]
+
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
+
+
+namespace Svg.ExCSS
 {
     internal delegate void ParseErrorEventHandler(StylesheetParseError e);
 
@@ -74,12 +96,12 @@ namespace ExCSS
         internal static RuleSet ParseRule(string css)
         {
             var parser = new Parser();
-            
+
 
             var styleSheet = parser.Parse(css);
 
             return styleSheet.Rules.Count > 0
-                ? styleSheet.Rules[0] 
+                ? styleSheet.Rules[0]
                 : null;
         }
 
@@ -94,7 +116,7 @@ namespace ExCSS
         internal static void AppendDeclarations(StyleDeclaration list, string css, bool quirksMode = false)
         {
             var parser = new Parser();//(new StyleSheet(), new StylesheetReader(declarations))
-           
+
 
             parser.AddRuleSet(list.ParentRule ?? new StyleRule(list));
 
@@ -109,18 +131,18 @@ namespace ExCSS
 
         private bool AddTerm(Term value)
         {
+            var added = true;
+
             if (_isFraction)
             {
                 if (_terms.Length > 0)
                 {
-                    value = new PrimitiveTerm(UnitType.Unknown, _terms[0] + "/" + value);
-                    _terms = new TermList();
+                    value = new PrimitiveTerm(UnitType.Unknown, _terms[_terms.Length - 1] + "/" + value);
                 }
-
+                _terms.SetLastTerm(value);
                 _isFraction = false;
             }
-
-            if (_functionBuffers.Count > 0)
+            else if (_functionBuffers.Count > 0)
             {
                 _functionBuffers.Peek().TermList.Add(value);
             }
@@ -134,10 +156,10 @@ namespace ExCSS
             }
             else
             {
-                return false;
+                added = false;
             }
 
-            return true;
+            return added;
         }
 
         private void FinalizeProperty()
@@ -147,6 +169,10 @@ namespace ExCSS
                 if (_terms.Length > 1)
                 {
                     _property.Term = _terms;
+                }
+                else if (_terms.Length == 0)
+                {
+                    RemoveCurrentProperty();
                 }
                 else
                 {
@@ -198,6 +224,20 @@ namespace ExCSS
             if (rule != null)
             {
                 rule.Declarations.Add(property);
+            }
+        }
+
+        private void RemoveCurrentProperty()
+        {
+            if (_property != null)
+            {
+                var rule = CurrentRule as ISupportsDeclarations;
+
+                if (rule != null)
+                {
+                    rule.Declarations.Remove(_property);
+                }
+                _property = null;
             }
         }
 

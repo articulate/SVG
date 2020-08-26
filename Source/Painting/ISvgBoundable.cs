@@ -3,7 +3,7 @@
 namespace Svg
 {
     public interface ISvgBoundable
-    {
+    { 
         RectangleF CalculateBounds();
     }
 }

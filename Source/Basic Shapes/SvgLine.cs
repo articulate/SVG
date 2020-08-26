@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 
@@ -11,71 +7,72 @@ namespace Svg
     /// Represents and SVG line element.
     /// </summary>
     [SvgElement("line")]
-    public class SvgLine : SvgVisualElement
+    public class SvgLine : SvgMarkerElement
     {
-        private SvgUnit _startX;
-        private SvgUnit _startY;
-        private SvgUnit _endX;
-        private SvgUnit _endY;
+        private SvgUnit _startX = 0f;
+        private SvgUnit _startY = 0f;
+        private SvgUnit _endX = 0f;
+        private SvgUnit _endY = 0f;
+
         private GraphicsPath _path;
 
         [SvgAttribute("x1")]
         public SvgUnit StartX
         {
-            get { return this._startX; }
-            set 
-            { 
-            	if(_startX != value)
-            	{
-            		this._startX = value;
-            		this.IsPathDirty = true;
-            		OnAttributeChanged(new AttributeEventArgs{ Attribute = "x1", Value = value });
-            	}
+            get { return _startX; }
+            set
+            {
+                if (_startX != value)
+                {
+                    _startX = value;
+                    IsPathDirty = true;
+                }
+                Attributes["x1"] = value;
             }
         }
 
         [SvgAttribute("y1")]
         public SvgUnit StartY
         {
-            get { return this._startY; }
-            set 
-            { 
-            	if(_startY != value)
-            	{
-            		this._startY = value;
-            		this.IsPathDirty = true;
-            		OnAttributeChanged(new AttributeEventArgs{ Attribute = "y1", Value = value });
-            	}
+            get { return _startY; }
+            set
+            {
+                if (_startY != value)
+                {
+                    _startY = value;
+                    IsPathDirty = true;
+                }
+                Attributes["y1"] = value;
             }
         }
 
         [SvgAttribute("x2")]
         public SvgUnit EndX
         {
-            get { return this._endX; }
-            set 
-            { 
-            	if(_endX != value)
-            	{
-            		this._endX = value;
-            		this.IsPathDirty = true;
-            		OnAttributeChanged(new AttributeEventArgs{ Attribute = "x2", Value = value });
-            	}
+            get { return _endX; }
+            set
+            {
+                if (_endX != value)
+                {
+                    _endX = value;
+                    IsPathDirty = true;
+                }
+                Attributes["x2"] = value;
             }
         }
 
         [SvgAttribute("y2")]
         public SvgUnit EndY
         {
-            get { return this._endY; }
-            set 
-            { 
-            	if(_endY != value)
-            	{
-            		this._endY = value;
-            		this.IsPathDirty = true;
-            		OnAttributeChanged(new AttributeEventArgs{ Attribute = "y2", Value = value });
-            	}
+            get { return _endY; }
+            set
+            {
+                if (_endY != value)
+                {
+                    _endY = value;
+                    IsPathDirty = true;
+                }
+                Attributes["y2"] = value;
             }
         }
 
@@ -88,48 +85,50 @@ namespace Svg
             }
         }
 
-        public SvgLine()
+        public override System.Drawing.Drawing2D.GraphicsPath Path(ISvgRenderer renderer)
         {
-        }
-
-        public override System.Drawing.Drawing2D.GraphicsPath Path(SvgRenderer renderer)
-        {
-            if (this._path == null || this.IsPathDirty)
+            if ((this._path == null || this.IsPathDirty) && base.StrokeWidth > 0)
             {
-                PointF start = new PointF(this.StartX.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this), 
+                PointF start = new PointF(this.StartX.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this),
                                           this.StartY.ToDeviceValue(renderer, UnitRenderingType.Vertical, this));
-                PointF end = new PointF(this.EndX.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this), 
+                PointF end = new PointF(this.EndX.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this),
                                         this.EndY.ToDeviceValue(renderer, UnitRenderingType.Vertical, this));
 
                 this._path = new GraphicsPath();
-                this._path.AddLine(start, end);
-                this.IsPathDirty = false;
+
+                // If it is to render, don't need to consider stroke width.
+                // i.e stroke width only to be considered when calculating boundary
+                if (renderer != null)
+                {
+                    this._path.AddLine(start, end);
+                    this.IsPathDirty = false;
+                }
+                else
+                {    // only when calculating boundary 
+                    _path.StartFigure();
+                    var radius = base.StrokeWidth / 2;
+                    _path.AddEllipse(start.X - radius, start.Y - radius, 2 * radius, 2 * radius);
+                    _path.AddEllipse(end.X - radius, end.Y - radius, 2 * radius, 2 * radius);
+                    _path.CloseFigure();
+                }
             }
             return this._path;
         }
 
-        public override RectangleF CalculateBounds()
+        public override SvgElement DeepCopy()
         {
-            return this.Path(null).GetBounds();
+            return DeepCopy<SvgLine>();
         }
 
-        public override SvgElement DeepCopy()
-		{
-			return DeepCopy<SvgLine>();
-		}
+        public override SvgElement DeepCopy<T>()
+        {
+            var newObj = base.DeepCopy<T>() as SvgLine;
 
-		public override SvgElement DeepCopy<T>()
-		{
-			var newObj = base.DeepCopy<T>() as SvgLine;
-			newObj.StartX = this.StartX;
-			newObj.EndX = this.EndX;
-			newObj.StartY = this.StartY;
-			newObj.EndY = this.EndY;
-			if (this.Fill != null)
-				newObj.Fill = this.Fill.DeepCopy() as SvgPaintServer;
-
-			return newObj;
-		}
-
+            newObj._startX = _startX;
+            newObj._startY = _startY;
+            newObj._endX = _endX;
+            newObj._endY = _endY;
+            return newObj;
+        }
     }
 }

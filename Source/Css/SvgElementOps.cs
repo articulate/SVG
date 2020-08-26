@@ -1,17 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Fizzler;
 
 namespace Svg.Css
 {
     internal class SvgElementOps : IElementOps<SvgElement>
     {
+        private readonly SvgElementFactory _elementFactory;
+
+        public SvgElementOps(SvgElementFactory elementFactory)
+        {
+            _elementFactory = elementFactory;
+        }
+
         public Selector<SvgElement> Type(NamespacePrefix prefix, string name)
         {
-            var type = SvgElementFactory.AvailableElements.SingleOrDefault(e => e.ElementName == name);
-            return nodes => nodes.Where(n => n.GetType() == type.ElementType);
+            var types = _elementFactory.AvailableElements.Where(e => e.ElementName.Equals(name)).Select(e => e.ElementType);
+            if (types.Any())
+            {
+                return nodes => nodes.Where(n => types.Contains(n.GetType()));
+            }
+            return nodes => Enumerable.Empty<SvgElement>();
         }
 
         public Selector<SvgElement> Universal(NamespacePrefix prefix)
@@ -31,7 +41,7 @@ namespace Svg.Css
 
         public Selector<SvgElement> AttributeExists(NamespacePrefix prefix, string name)
         {
-            return nodes => nodes.Where(n => n.Attributes.ContainsKey(name) || n.CustomAttributes.ContainsKey(name));
+            return nodes => nodes.Where(n => n.ContainsAttribute(name));
         }
 
         public Selector<SvgElement> AttributeExact(NamespacePrefix prefix, string name, string value)
@@ -39,9 +49,7 @@ namespace Svg.Css
             return nodes => nodes.Where(n =>
             {
                 string val = null;
-                object oval = null;
-                return (n.CustomAttributes.TryGetValue(name, out val) && val == value) ||
-                    (n.Attributes.TryGetValue(name, out oval) && oval.ToString() == value);
+                return (n.TryGetAttribute(name, out val) && val == value);
             });
         }
 
@@ -50,9 +58,7 @@ namespace Svg.Css
             return nodes => nodes.Where(n =>
             {
                 string val = null;
-                object oval = null;
-                return (n.CustomAttributes.TryGetValue(name, out val) && val.Split(' ').Contains(value)) ||
-                    (n.Attributes.TryGetValue(name, out oval) && oval.ToString().Split(' ').Contains(value));
+                return (n.TryGetAttribute(name, out val) && val.Split(' ').Contains(value));
             });
         }
 
@@ -63,9 +69,7 @@ namespace Svg.Css
                  : (nodes => nodes.Where(n =>
                     {
                         string val = null;
-                        object oval = null;
-                        return (n.CustomAttributes.TryGetValue(name, out val) && val.Split('-').Contains(value)) ||
-                            (n.Attributes.TryGetValue(name, out oval) && oval.ToString().Split('-').Contains(value));
+                        return (n.TryGetAttribute(name, out val) && val.Split('-').Contains(value));
                     }));
         }
 
@@ -76,9 +80,7 @@ namespace Svg.Css
                  : (nodes => nodes.Where(n =>
                      {
                          string val = null;
-                         object oval = null;
-                         return (n.CustomAttributes.TryGetValue(name, out val) && val.StartsWith(value)) ||
-                             (n.Attributes.TryGetValue(name, out oval) && oval.ToString().StartsWith(value));
+                         return (n.TryGetAttribute(name, out val) && val.StartsWith(value));
                      }));
         }
 
@@ -89,9 +91,7 @@ namespace Svg.Css
                  : (nodes => nodes.Where(n =>
                  {
                      string val = null;
-                     object oval = null;
-                     return (n.CustomAttributes.TryGetValue(name, out val) && val.EndsWith(value)) ||
-                         (n.Attributes.TryGetValue(name, out oval) && oval.ToString().EndsWith(value));
+                     return (n.TryGetAttribute(name, out val) && val.EndsWith(value));
                  }));
         }
 
@@ -102,9 +102,7 @@ namespace Svg.Css
                  : (nodes => nodes.Where(n =>
                  {
                      string val = null;
-                     object oval = null;
-                     return (n.CustomAttributes.TryGetValue(name, out val) && val.Contains(value)) ||
-                         (n.Attributes.TryGetValue(name, out oval) && oval.ToString().Contains(value));
+                     return (n.TryGetAttribute(name, out val) && val.Contains(value));
                  }));
         }
 

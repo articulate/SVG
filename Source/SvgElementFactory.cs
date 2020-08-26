@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Xml;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
-using ExCSS;
+using Svg.ExCSS;
 
 namespace Svg
 {
@@ -14,13 +14,12 @@ namespace Svg
     /// </summary>
     internal class SvgElementFactory
     {
-        private static List<ElementInfo> availableElements;
-        private const string svgNS = "http://www.w3.org/2000/svg";
+        private List<ElementInfo> availableElements;
 
         /// <summary>
         /// Gets a list of available types that can be used when creating an <see cref="SvgElement"/>.
         /// </summary>
-        public static List<ElementInfo> AvailableElements
+        public List<ElementInfo> AvailableElements
         {
             get
             {
@@ -44,7 +43,7 @@ namespace Svg
         /// <param name="reader">The <see cref="XmlTextReader"/> containing the node to parse into an <see cref="SvgDocument"/>.</param>
         /// <exception cref="ArgumentNullException">The <paramref name="reader"/> parameter cannot be <c>null</c>.</exception>
         /// <exception cref="InvalidOperationException">The CreateDocument method can only be used to parse root &lt;svg&gt; elements.</exception>
-        public static T CreateDocument<T>(XmlReader reader) where T : SvgDocument, new()
+        public T CreateDocument<T>(XmlReader reader) where T : SvgDocument, new()
         {
             if (reader == null)
             {
@@ -65,7 +64,7 @@ namespace Svg
         /// <param name="reader">The <see cref="XmlTextReader"/> containing the node to parse into a subclass of <see cref="SvgElement"/>.</param>
         /// <param name="document">The <see cref="SvgDocument"/> that the created element belongs to.</param>
         /// <exception cref="ArgumentNullException">The <paramref name="reader"/> and <paramref name="document"/> parameters cannot be <c>null</c>.</exception>
-        public static SvgElement CreateElement(XmlReader reader, SvgDocument document)
+        public SvgElement CreateElement(XmlReader reader, SvgDocument document)
         {
             if (reader == null)
             {
@@ -75,7 +74,7 @@ namespace Svg
             return CreateElement<SvgDocument>(reader, false, document);
         }
 
-        private static SvgElement CreateElement<T>(XmlReader reader, bool fragmentIsDocument, SvgDocument document) where T : SvgDocument, new()
+        private SvgElement CreateElement<T>(XmlReader reader, bool fragmentIsDocument, SvgDocument document) where T : SvgDocument, new()
         {
             SvgElement createdElement = null;
             string elementName = reader.LocalName;
@@ -83,7 +82,7 @@ namespace Svg
 
             //Trace.TraceInformation("Begin CreateElement: {0}", elementName);
 
-            if (elementNS == svgNS)
+            if (elementNS == SvgAttributeAttribute.SvgNamespace || string.IsNullOrEmpty(elementNS))
             {
                 if (elementName == "svg")
                 {
@@ -91,10 +90,11 @@ namespace Svg
                 }
                 else
                 {
-                    ElementInfo validType = AvailableElements.SingleOrDefault(e => e.ElementName == elementName);
-                    if (validType != null)
+                    ElementInfo validType;
+                    if (AvailableElements.Where(e => !e.ElementName.Equals("svg", StringComparison.OrdinalIgnoreCase))
+                        .ToDictionary(e => e.ElementName, e => e).TryGetValue(elementName, out validType))
                     {
-                        createdElement = (SvgElement) Activator.CreateInstance(validType.ElementType);
+                        createdElement = (SvgElement)Activator.CreateInstance(validType.ElementType);
                     }
                     else
                     {
@@ -119,7 +119,7 @@ namespace Svg
             return createdElement;
         }
 
-        private static void SetAttributes(SvgElement element, XmlReader reader, SvgDocument document)
+        private void SetAttributes(SvgElement element, XmlReader reader, SvgDocument document)
         {
             //Trace.TraceInformation("Begin SetAttributes");
 
@@ -131,20 +131,20 @@ namespace Svg
             {
                 var cssParser = new Parser();
 
-                if (reader.LocalName.Equals("style") && !(element is NonSvgElement)) 
+                if (reader.LocalName.Equals("style") && !(element is NonSvgElement))
                 {
                     var inlineSheet = cssParser.Parse("#a{" + reader.Value + "}");
                     foreach (var rule in inlineSheet.StyleRules)
                     {
                         foreach (var decl in rule.Declarations)
                         {
-                            element.AddStyle(decl.Name, decl.Term.ToString(), 1 << 16);
+                            element.AddStyle(decl.Name, decl.Term.ToString(), SvgElement.StyleSpecificity_InlineStyle);
                         }
                     }
                 }
                 else if (IsStyleAttribute(reader.LocalName))
                 {
-                    element.AddStyle(reader.LocalName, reader.Value, 2 << 16);
+                    element.AddStyle(reader.LocalName, reader.Value, SvgElement.StyleSpecificity_PresAttribute);
                 }
                 else
                 {
@@ -216,6 +216,7 @@ namespace Svg
                 case "text-anchor":
                 case "text-decoration":
                 case "text-rendering":
+                case "text-transform":
                 case "unicode-bidi":
                 case "visibility":
                 case "word-spacing":
@@ -228,7 +229,7 @@ namespace Svg
         private static Dictionary<Type, Dictionary<string, PropertyDescriptorCollection>> _propertyDescriptors = new Dictionary<Type, Dictionary<string, PropertyDescriptorCollection>>();
         private static object syncLock = new object();
 
-        internal static void SetPropertyValue(SvgElement element, string attributeName, string attributeValue, SvgDocument document)
+        internal static bool SetPropertyValue(SvgElement element, string attributeName, string attributeValue, SvgDocument document, bool isStyle = false)
         {
             var elementType = element.GetType();
 
@@ -253,7 +254,7 @@ namespace Svg
                     _propertyDescriptors.Add(elementType, new Dictionary<string, PropertyDescriptorCollection>());
 
                     _propertyDescriptors[elementType].Add(attributeName, properties);
-                } 
+                }
             }
 
             if (properties.Count > 0)
@@ -262,14 +263,11 @@ namespace Svg
 
                 try
                 {
-					if (attributeName == "opacity" && attributeValue == "undefined")
-					{
-						attributeValue = "1";
-					}
-
-					descriptor.SetValue(element, descriptor.Converter.ConvertFrom(document, CultureInfo.InvariantCulture, attributeValue));
-					
-
+                    if (attributeName == "opacity" && attributeValue == "undefined")
+                    {
+                        attributeValue = "1";
+                    }
+                    descriptor.SetValue(element, descriptor.Converter.ConvertFrom(document, CultureInfo.InvariantCulture, attributeValue));
                 }
                 catch
                 {
@@ -296,10 +294,16 @@ namespace Svg
                 }
                 else
                 {
+                    if (isStyle)
+                    {
+                        // custom styles shall remain as style
+                        return false;
+                    }
                     //attribute is not a svg attribute, store it in custom attributes
                     element.CustomAttributes[attributeName] = attributeValue;
                 }
             }
+            return true;
         }
 
         /// <summary>

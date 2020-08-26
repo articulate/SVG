@@ -1,6 +1,7 @@
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Drawing;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Linq;
 
@@ -12,40 +13,22 @@ namespace Svg
         [SvgAttribute("cx")]
         public SvgUnit CenterX
         {
-            get
-            {
-                return this.Attributes.GetAttribute<SvgUnit>("cx");
-            }
-            set
-            {
-                this.Attributes["cx"] = value;
-            }
+            get { return GetAttribute("cx", false, new SvgUnit(SvgUnitType.Percentage, 50f)); }
+            set { Attributes["cx"] = value; }
         }
 
         [SvgAttribute("cy")]
         public SvgUnit CenterY
         {
-            get
-            {
-                return this.Attributes.GetAttribute<SvgUnit>("cy");
-            }
-            set
-            {
-                this.Attributes["cy"] = value;
-            }
+            get { return GetAttribute("cy", false, new SvgUnit(SvgUnitType.Percentage, 50f)); }
+            set { Attributes["cy"] = value; }
         }
 
         [SvgAttribute("r")]
         public SvgUnit Radius
         {
-            get
-            {
-                return this.Attributes.GetAttribute<SvgUnit>("r");
-            }
-            set
-            {
-                this.Attributes["r"] = value;
-            }
+            get { return GetAttribute("r", false, new SvgUnit(SvgUnitType.Percentage, 50f)); }
+            set { Attributes["r"] = value; }
         }
 
         [SvgAttribute("fx")]
@@ -53,19 +36,12 @@ namespace Svg
         {
             get
             {
-                var value = this.Attributes.GetAttribute<SvgUnit>("fx");
-
+                var value = GetAttribute("fx", false, SvgUnit.None);
                 if (value.IsEmpty || value.IsNone)
-                {
-                    value = this.CenterX;
-                }
-
+                    value = CenterX;
                 return value;
             }
-            set
-            {
-                this.Attributes["fx"] = value;
-            }
+            set { Attributes["fx"] = value; }
         }
 
         [SvgAttribute("fy")]
@@ -73,36 +49,24 @@ namespace Svg
         {
             get
             {
-                var value = this.Attributes.GetAttribute<SvgUnit>("fy");
-
+                var value = GetAttribute("fy", false, SvgUnit.None);
                 if (value.IsEmpty || value.IsNone)
-                {
-                    value = this.CenterY;
-                }
-
+                    value = CenterY;
                 return value;
             }
-            set
-            {
-                this.Attributes["fy"] = value;
-            }
+            set { Attributes["fy"] = value; }
         }
 
-        public SvgRadialGradientServer()
-        {
-            CenterX = new SvgUnit(SvgUnitType.Percentage, 50F);
-            CenterY = new SvgUnit(SvgUnitType.Percentage, 50F);
-            Radius = new SvgUnit(SvgUnitType.Percentage, 50F);
-        }
+        private object _lockObj = new Object();
 
         private SvgUnit NormalizeUnit(SvgUnit orig)
         {
             return (orig.Type == SvgUnitType.Percentage && this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox ?
-                    new SvgUnit(SvgUnitType.User, orig.Value / 100) :
+                    new SvgUnit(SvgUnitType.User, orig.Value / 100f) :
                     orig);
         }
 
-        private Matrix EffectiveGradientTransform
+        protected override Matrix EffectiveGradientTransform
         {
             get
             {
@@ -116,14 +80,14 @@ namespace Svg
             }
         }
 
-        public override Brush GetBrush(SvgVisualElement renderingElement, SvgRenderer renderer, float opacity)
+        public override Brush GetBrush(SvgVisualElement renderingElement, ISvgRenderer renderer, float opacity, bool forStroke = false)
         {
             LoadStops(renderingElement);
 
             try
             {
-                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox) 
-                    renderer.Boundable(renderingElement);
+                if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox)
+                    renderer.SetBoundable(renderingElement);
 
                 // Calculate the path and transform it appropriately
                 var center = new PointF(NormalizeUnit(CenterX).ToDeviceValue(renderer, UnitRenderingType.Horizontal, this),
@@ -139,7 +103,7 @@ namespace Svg
 
                 using (var transform = EffectiveGradientTransform)
                 {
-                    var bounds = renderer.Boundable().CalculateBounds();
+                    var bounds = renderer.GetBoundable().CalculateBounds();
                     transform.Translate(bounds.X, bounds.Y, MatrixOrder.Prepend);
                     if (this.GradientUnits == SvgCoordinateUnits.ObjectBoundingBox)
                     {
@@ -159,9 +123,9 @@ namespace Svg
                 {
                     var stop = Stops.Last();
                     var origColor = stop.GetColor(renderingElement);
-                    var renderColor = System.Drawing.Color.FromArgb((int)(opacity * stop.Opacity * 255), origColor);
+                    var renderColor = System.Drawing.Color.FromArgb((int)Math.Round(opacity * stop.StopOpacity * 255), origColor);
 
-                    var origClip = renderer.Clip;
+                    var origClip = renderer.GetClip();
                     try
                     {
                         using (var solidBrush = new SolidBrush(renderColor))
@@ -170,9 +134,18 @@ namespace Svg
                             newClip.Exclude(path);
                             renderer.SetClip(newClip);
 
-                            var renderPath = renderingElement.Path(renderer);
-
-                            renderer.FillPath(solidBrush, renderPath);
+                            var renderPath = (GraphicsPath)renderingElement.Path(renderer);
+                            if (forStroke)
+                            {
+                                using (var pen = new Pen(solidBrush, renderingElement.StrokeWidth.ToDeviceValue(renderer, UnitRenderingType.Other, renderingElement)))
+                                {
+                                    renderer.DrawPath(pen, renderPath);
+                                }
+                            }
+                            else
+                            {
+                                renderer.FillPath(solidBrush, renderPath);
+                            }
                         }
                     }
                     finally
@@ -213,18 +186,19 @@ namespace Svg
         /// </summary>
         /// <param name="bounds">Bounds that the path must contain</param>
         /// <param name="path">Path of the gradient</param>
+        /// <param name="graphics">Not used</param>
         /// <returns>Scale factor</returns>
         /// <remarks>
         /// This method continually transforms the rectangle (fewer points) until it is contained by the path
         /// and returns the result of the search.  The scale factor is set to a constant 95%
         /// </remarks>
-        private float CalcScale(RectangleF bounds, GraphicsPath path)
+        private float CalcScale(RectangleF bounds, GraphicsPath path, Graphics graphics = null)
         {
             var points = new PointF[] {
-                new PointF(bounds.Left, bounds.Top), 
-                new PointF(bounds.Right, bounds.Top), 
-                new PointF(bounds.Right, bounds.Bottom), 
-                new PointF(bounds.Left, bounds.Bottom) 
+                new PointF(bounds.Left, bounds.Top),
+                new PointF(bounds.Right, bounds.Top),
+                new PointF(bounds.Right, bounds.Bottom),
+                new PointF(bounds.Left, bounds.Bottom)
             };
             var pathBounds = path.GetBounds();
             var pathCenter = new PointF(pathBounds.X + pathBounds.Width / 2, pathBounds.Y + pathBounds.Height / 2);
@@ -237,13 +211,13 @@ namespace Svg
                 while (!(path.IsVisible(points[0]) && path.IsVisible(points[1]) &&
                          path.IsVisible(points[2]) && path.IsVisible(points[3])))
                 {
-                    var previousPoints = new PointF[] 
-										{
-												new PointF(points[0].X, points[0].Y), 
-												new PointF(points[1].X, points[1].Y), 
-												new PointF(points[2].X, points[2].Y), 
-												new PointF(points[3].X, points[3].Y) 
-										};
+                    var previousPoints = new PointF[]
+                    {
+                                                new PointF(points[0].X, points[0].Y),
+                                                new PointF(points[1].X, points[1].Y),
+                                                new PointF(points[2].X, points[2].Y),
+                                                new PointF(points[3].X, points[3].Y)
+                    };
 
                     transform.TransformPoints(points);
 
@@ -256,7 +230,79 @@ namespace Svg
             return bounds.Height / (points[2].Y - points[1].Y);
         }
 
-        private ColorBlend CalculateColorBlend(SvgRenderer renderer, float opacity, float scale, out float outScale)
+        //New plan:
+        // scale the outer rectangle to always encompass ellipse
+        // cut the ellipse in half (either vertical or horizontal) 
+        // determine the region on each side of the ellipse
+        private static IEnumerable<GraphicsPath> GetDifference(RectangleF subject, GraphicsPath clip)
+        {
+            var clipFlat = (GraphicsPath)clip.Clone();
+            clipFlat.Flatten();
+            var clipBounds = clipFlat.GetBounds();
+            var bounds = RectangleF.Union(subject, clipBounds);
+            bounds.Inflate(bounds.Width * .3f, bounds.Height * 0.3f);
+
+            var clipMidPoint = new PointF((clipBounds.Left + clipBounds.Right) / 2, (clipBounds.Top + clipBounds.Bottom) / 2);
+            var leftPoints = new List<PointF>();
+            var rightPoints = new List<PointF>();
+            foreach (var pt in clipFlat.PathPoints)
+            {
+                if (pt.X <= clipMidPoint.X)
+                {
+                    leftPoints.Add(pt);
+                }
+                else
+                {
+                    rightPoints.Add(pt);
+                }
+            }
+            leftPoints.Sort((p, q) => p.Y.CompareTo(q.Y));
+            rightPoints.Sort((p, q) => p.Y.CompareTo(q.Y));
+
+            var point = new PointF((leftPoints.Last().X + rightPoints.Last().X) / 2,
+                                   (leftPoints.Last().Y + rightPoints.Last().Y) / 2);
+            leftPoints.Add(point);
+            rightPoints.Add(point);
+            point = new PointF(point.X, bounds.Bottom);
+            leftPoints.Add(point);
+            rightPoints.Add(point);
+
+            leftPoints.Add(new PointF(bounds.Left, bounds.Bottom));
+            leftPoints.Add(new PointF(bounds.Left, bounds.Top));
+            rightPoints.Add(new PointF(bounds.Right, bounds.Bottom));
+            rightPoints.Add(new PointF(bounds.Right, bounds.Top));
+
+            point = new PointF((leftPoints.First().X + rightPoints.First().X) / 2, bounds.Top);
+            leftPoints.Add(point);
+            rightPoints.Add(point);
+            point = new PointF(point.X, (leftPoints.First().Y + rightPoints.First().Y) / 2);
+            leftPoints.Add(point);
+            rightPoints.Add(point);
+
+            var path = new GraphicsPath(FillMode.Winding);
+            path.AddPolygon(leftPoints.ToArray());
+            yield return path;
+
+            path.Reset();
+            path.AddPolygon(rightPoints.ToArray());
+            yield return path;
+        }
+
+        private static GraphicsPath CreateGraphicsPath(PointF origin, PointF centerPoint, float effectiveRadius)
+        {
+            var path = new GraphicsPath();
+
+            path.AddEllipse(
+                origin.X + centerPoint.X - effectiveRadius,
+                origin.Y + centerPoint.Y - effectiveRadius,
+                effectiveRadius * 2,
+                effectiveRadius * 2
+            );
+
+            return path;
+        }
+
+        private ColorBlend CalculateColorBlend(ISvgRenderer renderer, float opacity, float scale, out float outScale)
         {
             var colorBlend = GetColorBlend(renderer, opacity, true);
             float newScale;
@@ -314,6 +360,13 @@ namespace Svg
                         break;
                     default:
                         outScale = 1.0f;
+                        //for (var i = 0; i < colorBlend.Positions.Length - 1; i++)
+                        //{
+                        //    colorBlend.Positions[i] = 1 - (1 - colorBlend.Positions[i]) / scale;
+                        //}
+
+                        //colorBlend.Positions = new[] { 0F }.Concat(colorBlend.Positions).ToArray();
+                        //colorBlend.Colors = new[] { colorBlend.Colors.First() }.Concat(colorBlend.Colors).ToArray();
 
                         break;
                 }
@@ -325,19 +378,6 @@ namespace Svg
         public override SvgElement DeepCopy()
         {
             return DeepCopy<SvgRadialGradientServer>();
-        }
-
-        public override SvgElement DeepCopy<T>()
-        {
-            var newObj = base.DeepCopy<T>() as SvgRadialGradientServer;
-
-            newObj.CenterX = this.CenterX;
-            newObj.CenterY = this.CenterY;
-            newObj.Radius = this.Radius;
-            newObj.FocalX = this.FocalX;
-            newObj.FocalY = this.FocalY;
-
-            return newObj;
         }
     }
 }

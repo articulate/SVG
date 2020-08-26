@@ -8,7 +8,7 @@ namespace Svg
 
         public NonSvgElement(string elementName)
         {
-            this.ElementName = elementName;
+            ElementName = elementName;
         }
 
         public override SvgElement DeepCopy()
@@ -16,11 +16,12 @@ namespace Svg
             return DeepCopy<NonSvgElement>();
         }
 
-        public override SvgElement DeepCopy<T>()
+        /// <summary>
+        /// Publish the element name to be able to differentiate non-svg elements.
+        /// </summary>
+        public string Name
         {
-            var newObj = base.DeepCopy<T>() as NonSvgElement;
-
-            return newObj;
+            get { return ElementName; }
         }
     }
 }

@@ -22,7 +22,7 @@ namespace Svg
             r.Width = bounds.Width;
             r.Height = bounds.Height;
         }
-        
+
         public static RectangleF GetRectangle(this SvgRectangle r)
         {
             return new RectangleF(r.X, r.Y, r.Width, r.Height);
@@ -49,50 +49,81 @@ namespace Svg
             var result = "";
 
             var currentCulture = Thread.CurrentThread.CurrentCulture;
-            Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
-            using (StringWriter str = new StringWriter())
+            try
             {
-                using (XmlTextWriter xml = new XmlTextWriter(str))
+                Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+                using (StringWriter str = new StringWriter())
                 {
-                    elem.WriteElement(xml);
-                    result = str.ToString();
+                    using (XmlTextWriter xml = new XmlTextWriter(str))
+                    {
+                        elem.Write(xml);
+                        result = str.ToString();
 
+                    }
                 }
             }
-            Thread.CurrentThread.CurrentCulture = currentCulture;
+            finally
+            {
+                // Make sure to set back the old culture even an error occurred.
+                Thread.CurrentThread.CurrentCulture = currentCulture;
+            }
 
             return result;
         }
-        
+
         public static bool HasNonEmptyCustomAttribute(this SvgElement element, string name)
         {
-        	return element.CustomAttributes.ContainsKey(name) && !string.IsNullOrEmpty(element.CustomAttributes[name]);
+            return element.CustomAttributes.ContainsKey(name) && !string.IsNullOrEmpty(element.CustomAttributes[name]);
         }
-        
+
         public static void ApplyRecursive(this SvgElement elem, Action<SvgElement> action)
         {
-        	action(elem);
-        	
-        	if(!(elem is SvgDocument)) //don't apply action to subtree of documents
-        	{
-        		foreach (var element in elem.Children)
-        		{
-        			element.ApplyRecursive(action);
-        		}
-        	}
+            foreach (var e in elem
+                .Traverse(e => e.Children))
+            {
+                action(e);
+            }
         }
-        
+
         public static void ApplyRecursiveDepthFirst(this SvgElement elem, Action<SvgElement> action)
         {
-        	if(!(elem is SvgDocument)) //don't apply action to subtree of documents
-        	{
-        		foreach (var element in elem.Children)
-        		{
-        			element.ApplyRecursiveDepthFirst(action);
-        		}
-        	}
-        	
-        	action(elem);
+            foreach (var e in elem
+                .TraverseDepthFirst(e => e.Children))
+            {
+                action(e);
+            }
         }
+
+        public static IEnumerable<T> Traverse<T>(this IEnumerable<T> items, Func<T, IEnumerable<T>> childrenSelector)
+        {
+            if (childrenSelector == null) throw new ArgumentNullException(nameof(childrenSelector));
+
+            var itemQueue = new Queue<T>(items);
+            while (itemQueue.Count > 0)
+            {
+                var current = itemQueue.Dequeue();
+                yield return current;
+                foreach (var child in childrenSelector(current) ?? Enumerable.Empty<T>()) itemQueue.Enqueue(child);
+            }
+        }
+
+        public static IEnumerable<T> Traverse<T>(this T root, Func<T, IEnumerable<T>> childrenSelector)
+            => Enumerable.Repeat(root, 1).Traverse(childrenSelector);
+
+        public static IEnumerable<T> TraverseDepthFirst<T>(this IEnumerable<T> items, Func<T, IEnumerable<T>> childrenSelector)
+        {
+            if (childrenSelector == null) throw new ArgumentNullException(nameof(childrenSelector));
+            var itemStack = new Stack<T>(items ?? Enumerable.Empty<T>());
+
+            while (itemStack.Count > 0)
+            {
+                var current = itemStack.Pop();
+                yield return current;
+                foreach (var child in childrenSelector(current) ?? Enumerable.Empty<T>()) itemStack.Push(child);
+            }
+        }
+
+        public static IEnumerable<T> TraverseDepthFirst<T>(this T root, Func<T, IEnumerable<T>> childrenSelector)
+            => Enumerable.Repeat(root, 1).TraverseDepthFirst(childrenSelector);
     }
 }

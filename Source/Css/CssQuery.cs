@@ -1,17 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Fizzler;
-using ExCSS;
+using Svg.ExCSS;
 
 namespace Svg.Css
 {
     internal static class CssQuery
     {
-        public static IEnumerable<SvgElement> QuerySelectorAll(this SvgElement elem, string selector)
+        public static IEnumerable<SvgElement> QuerySelectorAll(this SvgElement elem, string selector, SvgElementFactory elementFactory)
         {
-            var generator = new SelectorGenerator<SvgElement>(new SvgElementOps());
+            var generator = new SelectorGenerator<SvgElement>(new SvgElementOps(elementFactory));
             Fizzler.Parser.Parse(selector, generator);
             return generator.Selector(Enumerable.Repeat(elem, 1));
         }
@@ -42,7 +40,7 @@ namespace Svg.Css
                     // class, pseudo-class, attribute
                     return 1 << 8;
                 }
-                else if (selector == SimpleSelector.All)
+                else if (simpleCode.Equals("*"))
                 {
                     // all selector
                     return 0;

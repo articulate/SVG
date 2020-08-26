@@ -1,23 +1,19 @@
-using System.Drawing;
+ï»¿using System.Drawing;
 using System.Drawing.Drawing2D;
 
 namespace Svg
 {
     /// <summary>
-    /// The ‘switch’ element evaluates the ‘requiredFeatures’, ‘requiredExtensions’ and ‘systemLanguage’ attributes on its direct child elements in order, and then processes and renders the first child for which these attributes evaluate to true
+    /// The 'switch' element evaluates the 'requiredFeatures', 'requiredExtensions' and 'systemLanguage' attributes on its direct child elements in order, and then processes and renders the first child for which these attributes evaluate to true
     /// </summary>
     [SvgElement("switch")]
     public class SvgSwitch : SvgVisualElement
     {
-        public SvgSwitch()
-        {
-        }
-
         /// <summary>
         /// Gets the <see cref="GraphicsPath"/> for this element.
         /// </summary>
         /// <value></value>
-        public override System.Drawing.Drawing2D.GraphicsPath Path(SvgRenderer renderer)
+        public override GraphicsPath Path(ISvgRenderer renderer)
         {
             return GetPaths(this, renderer);
         }
@@ -25,7 +21,7 @@ namespace Svg
         /// <summary>
         /// Gets the bounds of the element.
         /// </summary>
-        /// <returns>The bounds.</returns>
+        /// <value>The bounds.</value>
         public override RectangleF CalculateBounds()
         {
             var r = new RectangleF();
@@ -37,11 +33,11 @@ namespace Svg
                     // This is because when the Rectangle is Empty, the Union method adds as if the first values where X=0, Y=0
                     if (r.IsEmpty)
                     {
-                        r = ((SvgVisualElement) c).CalculateBounds();
+                        r = ((SvgVisualElement)c).CalculateBounds();
                     }
                     else
                     {
-                        var childBounds = ((SvgVisualElement) c).CalculateBounds();
+                        var childBounds = ((SvgVisualElement)c).CalculateBounds();
                         if (!childBounds.IsEmpty)
                         {
                             r = RectangleF.Union(r, childBounds);
@@ -50,37 +46,37 @@ namespace Svg
                 }
             }
 
-            return r;
+            return TransformedBounds(r);
+        
         }
 
         /// <summary>
         /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="Graphics"/> object.
         /// </summary>
         /// <param name="renderer">The <see cref="Graphics"/> object to render to.</param>
-        protected override void Render(SvgRenderer renderer)
+        protected override void Render(ISvgRenderer renderer)
         {
             if (!Visible || !Displayable)
                 return;
 
-            this.PushTransforms(renderer);
-            this.SetClip(renderer);
-            base.RenderChildren(renderer);
-            this.ResetClip(renderer);
-            this.PopTransforms(renderer);
+            try
+            {
+                if (PushTransforms(renderer))
+                {
+                    SetClip(renderer);
+                    base.RenderChildren(renderer);
+                    ResetClip(renderer);
+                }
+            }
+            finally
+            {
+                PopTransforms(renderer);
+            }
         }
-
 
         public override SvgElement DeepCopy()
         {
             return DeepCopy<SvgSwitch>();
-        }
-
-        public override SvgElement DeepCopy<T>()
-        {
-            var newObj = base.DeepCopy<T>() as SvgSwitch;
-            if (this.Fill != null)
-                newObj.Fill = this.Fill.DeepCopy() as SvgPaintServer;
-            return newObj;
         }
     }
 }
