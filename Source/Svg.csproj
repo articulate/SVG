@@ -7,7 +7,7 @@
     <IsPackable>true</IsPackable>
     <Company></Company>
     <Authors>davescriven, jvenema, mrbean-bremen, H1Gdev, owaits, ddpruitt, Ralf1108, Tebjan Halm, and others</Authors>
-    <PackageId>Svg</PackageId>
+    <PackageId>Articulate.Svg</PackageId>
     <Product>SVG Rendering Library</Product>
     <Summary>SVG Rendering Library</Summary>
     <Description>
@@ -26,7 +26,7 @@
     <PackageTags>svg, vector graphics, rendering</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageReleaseNotes>
       Supports multiple targets v4.5.2 thru to dotnetcore2.2.
@@ -36,6 +36,10 @@
     <PackageIconUrl>https://www.w3.org/Icons/SVG/svg-logo-v.png</PackageIconUrl>
     <PackageIcon>svg-logo-v.png</PackageIcon>
     <LangVersion>7.3</LangVersion>
+    <Version>1.0.0</Version>
+    <PackageVersion>1.0.0</PackageVersion>
+    <FileVersion>1.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -115,9 +119,5 @@
 
   <ItemGroup>
     <PackageReference Include="Fizzler" Version="1.2.0" />
-    <PackageReference Include="Nerdbank.GitVersioning" Version="3.0.26">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 </Project>

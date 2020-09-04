@@ -1,22 +1,24 @@
-version: 2.9.0.{build}
+version: 3.1.1.{build}
+image: Visual Studio 2019
 pull_requests:
   do_not_increment_build_number: true
 configuration: Release
-assembly_info:
+dotnet_csproj:
   patch: true
-  file: '**\AssemblyInfo.*'
-  assembly_version: '{version}'
-  assembly_file_version: '{version}'
-  assembly_informational_version: '{version}'
+  file: '**\*.csproj'
+  version: '{version}'
+  package_version: '{version}'
+  file_version: '{version}'
+  informational_version: '{version}'
 nuget:
   disable_publish_on_pr: true
 build_script:
 - ps: >-
-    msbuild .\Source\Svg.sln /p:configuration=Release
+    nuget restore .\Source\Svg.sln
 
-    nuget pack .\Source\Svg.csproj -properties Configuration=Release
+    msbuild .\Source\Svg.sln /p:configuration=Release
 artifacts:
-- path: Svg.*.nupkg
+- path: .\Source\bin\release\Articulate.Svg.*.nupkg
   name: PackageFile
 deploy:
 - provider: NuGet
