@@ -18,13 +18,13 @@ build_script:
 
     msbuild .\Source\Svg.sln /p:configuration=Release
 artifacts:
-- path: .\Source\bin\release\Articulate.Svg.*.nupkg
+- path: '**\Articulate.Svg.*.nupkg'
   name: PackageFile
 deploy:
 - provider: NuGet
   server: https://artifactory.articulate.com/artifactory/api/nuget/nuget-local
   api_key:
-    secure: F5AJkry9VKS7NNyidtyaFt1Oomgk324GVOfheoS9ZxQ=
+    secure: I2fPs5m1kSHTtbHd03Lu+cM8KGP97xPnopLZ6OVhoLMRWfVy/cEcVp0BKYB3bf3gT/Zp1qp3tRfFfpAvwy6jNcmY6pI3Y1fWoKd6BVyutj1kz+3BQVkbU3CKTh5VyyvO6OZBS/MSlqSs8c7SVaqZwiMaDOUwAKU23gKjnGKpKCc=
   skip_symbols: true
   artifact: PackageFile
   on:
