@@ -1,5 +1,5 @@
-﻿﻿using System;
-﻿using System.Drawing.Drawing2D;
+﻿using System;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 
 namespace Svg.Transforms
@@ -18,16 +18,16 @@ namespace Svg.Transforms
             get
             {
                 var matrix = new Matrix();
-                matrix.Shear(
-                    (float)Math.Tan(AngleX/180*Math.PI),
-                    (float)Math.Tan(AngleY/180*Math.PI));
+                matrix.Shear((float)Math.Tan(AngleX / 180f * Math.PI), (float)Math.Tan(AngleY / 180f * Math.PI));
                 return matrix;
             }
         }
 
         public override string WriteToString()
         {
-            return string.Format(CultureInfo.InvariantCulture, "skew({0}, {1})", this.AngleX, this.AngleY);
+            if (AngleY == 0f)
+                return string.Format(CultureInfo.InvariantCulture, "skewX({0})", AngleX);
+            return string.Format(CultureInfo.InvariantCulture, "skewY({0})", AngleY);
         }
 
         public SvgSkew(float x, float y)
@@ -36,10 +36,9 @@ namespace Svg.Transforms
             AngleY = y;
         }
 
-
-		public override object Clone()
-		{
-			return new SvgSkew(this.AngleX, this.AngleY);
-		}
+        public override object Clone()
+        {
+            return new SvgSkew(AngleX, AngleY);
+        }
     }
 }

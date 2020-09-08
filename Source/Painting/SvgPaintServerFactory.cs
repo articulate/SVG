@@ -1,78 +1,51 @@
-using System;
+﻿using System;
 using System.ComponentModel;
-using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Xml;
 using System.Drawing;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Svg
 {
     internal class SvgPaintServerFactory : TypeConverter
     {
         private static readonly SvgColourConverter _colourConverter;
-        private static readonly Regex _urlRefPattern;
+        private static readonly Regex _urlRefPattern = new Regex(@"url\((#[^)]+)\)");
 
         static SvgPaintServerFactory()
         {
             _colourConverter = new SvgColourConverter();
-            _urlRefPattern = new Regex(@"url\((#[^)]+)\)");
         }
 
         public static SvgPaintServer Create(string value, SvgDocument document)
         {
+            if (value == null)
+                return SvgPaintServer.NotSet;
+
+            var colorValue = value.Trim();
             // If it's pointing to a paint server
-            if (string.IsNullOrEmpty(value))
-            {
-                return SvgColourServer.NotSet;
-            }
-            else if (value == "inherit")
-            {
-                return SvgColourServer.Inherit;
-            }
-            else if (value == "currentColor")
-            {
-                return new SvgDeferredPaintServer(document, value);
-            }
-            else if (value.IndexOf("url(#") > -1)
+            if (string.IsNullOrEmpty(colorValue))
+                return SvgPaintServer.NotSet;
+            else if (colorValue.Equals("none", StringComparison.OrdinalIgnoreCase))
+                return SvgPaintServer.None;
+            else if (colorValue.Equals("currentColor", StringComparison.OrdinalIgnoreCase))
+                return new SvgDeferredPaintServer("currentColor");
+            else if (colorValue.Equals("inherit", StringComparison.OrdinalIgnoreCase))
+                return SvgPaintServer.Inherit;
+            else if (colorValue.StartsWith("url(#", StringComparison.OrdinalIgnoreCase))
             {
                 Match match = _urlRefPattern.Match(value);
                 Uri id = new Uri(match.Groups[1].Value, UriKind.Relative);
                 return (SvgPaintServer)document.IdManager.GetElementById(id);
             }
-            // If referenced to to a different (linear or radial) gradient
-            else if (document.IdManager.GetElementById(value) != null && document.IdManager.GetElementById(value).GetType().BaseType == typeof(SvgGradientServer))
-            {
-                return (SvgPaintServer)document.IdManager.GetElementById(value);
-            }
-            else if (value.StartsWith("#")) // Otherwise try and parse as colour
-            {
-                try
-                {
-                    return new SvgColourServer((Color)_colourConverter.ConvertFrom(value.Trim()));
-                }
-                catch
-                {
-                    return new SvgDeferredPaintServer(document, value);
-                }
-            }
-            else
-            {
-                return new SvgColourServer((Color)_colourConverter.ConvertFrom(value.Trim()));
-            }
+
+            // Otherwise try and parse as colour
+            return new SvgColourServer((Color)_colourConverter.ConvertFrom(colorValue));
         }
 
-        public override object ConvertFrom(ITypeDescriptorContext context, System.Globalization.CultureInfo culture, object value)
+        public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
         {
             if (value is string)
-            {
-            	var s = (string) value;
-                if (String.Equals(s.Trim(), "none", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(s) || s.Trim().Length < 1)
-            		return SvgPaintServer.None;
-            	else
-                	return SvgPaintServerFactory.Create(s, (SvgDocument)context);
-            }
+                return Create((string)value, (SvgDocument)context);
 
             return base.ConvertFrom(context, culture, value);
         }
@@ -101,14 +74,20 @@ namespace Svg
         {
             if (destinationType == typeof(string))
             {
-                //check for none
-                if (value == SvgPaintServer.None) return "none";
+                // check for constant
+                if (value == SvgPaintServer.None || value == SvgPaintServer.Inherit || value == SvgPaintServer.NotSet)
+                    return value.ToString();
 
                 var colourServer = value as SvgColourServer;
-
                 if (colourServer != null)
                 {
                     return new SvgColourConverter().ConvertTo(colourServer.Colour, typeof(string));
+                }
+
+                var deferred = value as SvgDeferredPaintServer;
+                if (deferred != null)
+                {
+                    return deferred.ToString();
                 }
 
                 if (value != null)
@@ -117,7 +96,7 @@ namespace Svg
                 }
                 else
                 {
-                	return "none";
+                    return "none";
                 }
             }
 

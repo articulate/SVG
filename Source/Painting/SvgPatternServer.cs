@@ -1,10 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Drawing.Drawing2D;
 using System.Drawing;
-using System.ComponentModel;
-
+using System.Drawing.Drawing2D;
+using System.Linq;
 using Svg.Transforms;
 
 namespace Svg
@@ -13,85 +11,15 @@ namespace Svg
     /// A pattern is used to fill or stroke an object using a pre-defined graphic object which can be replicated ("tiled") at fixed intervals in x and y to cover the areas to be painted.
     /// </summary>
     [SvgElement("pattern")]
-    public sealed class SvgPatternServer : SvgPaintServer, ISvgViewPort, ISvgSupportsCoordinateUnits
+    public sealed class SvgPatternServer : SvgPaintServer, ISvgViewPort
     {
-        private SvgUnit _width;
-        private SvgUnit _height;
-        private SvgUnit _x;
-        private SvgUnit _y;
+        private SvgUnit _x = SvgUnit.None;
+        private SvgUnit _y = SvgUnit.None;
+        private SvgUnit _width = SvgUnit.None;
+        private SvgUnit _height = SvgUnit.None;
+        private SvgCoordinateUnits? _patternUnits;
+        private SvgCoordinateUnits? _patternContentUnits;
         private SvgViewBox _viewBox;
-        private SvgCoordinateUnits _patternUnits;
-        private SvgCoordinateUnits _patternContentUnits;
-
-		[SvgAttribute("overflow")]
-		public SvgOverflow Overflow
-		{
-			get { return this.Attributes.GetAttribute<SvgOverflow>("overflow"); }
-			set { this.Attributes["overflow"] = value; }
-		}
-
-
-        /// <summary>
-        /// Specifies a supplemental transformation which is applied on top of any 
-        /// transformations necessary to create a new pattern coordinate system.
-        /// </summary>
-        [SvgAttribute("viewBox")]
-        public SvgViewBox ViewBox
-        {
-            get { return this._viewBox; }
-            set { this._viewBox = value; }
-        }
-        
-        /// <summary>
-        /// Gets or sets the aspect of the viewport.
-        /// </summary>
-        /// <value></value>
-        [SvgAttribute("preserveAspectRatio")]
-        public SvgAspectRatio AspectRatio 
-		{
-			get;
-			set;
-		}
-
-        /// <summary>
-        /// Gets or sets the width of the pattern.
-        /// </summary>
-        [SvgAttribute("width")]
-        public SvgUnit Width
-        {
-            get { return this._width; }
-            set { this._width = value; }
-        }
-
-        /// <summary>
-        /// Gets or sets the width of the pattern.
-        /// </summary>
-        [SvgAttribute("patternUnits")]
-        public SvgCoordinateUnits PatternUnits
-        {
-            get { return this._patternUnits; }
-            set { this._patternUnits = value; }
-        }
-
-        /// <summary>
-        /// Gets or sets the width of the pattern.
-        /// </summary>
-        [SvgAttribute("patternUnits")]
-        public SvgCoordinateUnits PatternContentUnits
-        {
-            get { return this._patternContentUnits; }
-            set { this._patternContentUnits = value; }
-        }
-
-        /// <summary>
-        /// Gets or sets the height of the pattern.
-        /// </summary>
-        [SvgAttribute("height")]
-        public SvgUnit Height
-        {
-            get { return this._height; }
-            set { this._height = value; }
-        }
 
         /// <summary>
         /// Gets or sets the X-axis location of the pattern.
@@ -99,8 +27,8 @@ namespace Svg
         [SvgAttribute("x")]
         public SvgUnit X
         {
-            get { return this._x; }
-            set { this._x = value; }
+            get { return _x; }
+            set { _x = value; Attributes["x"] = value; }
         }
 
         /// <summary>
@@ -109,119 +37,229 @@ namespace Svg
         [SvgAttribute("y")]
         public SvgUnit Y
         {
-            get { return this._y; }
-            set { this._y = value; }
+            get { return _y; }
+            set { _y = value; Attributes["y"] = value; }
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SvgPatternServer"/> class.
+        /// Gets or sets the width of the pattern.
         /// </summary>
-        public SvgPatternServer()
+        [SvgAttribute("width")]
+        public SvgUnit Width
         {
-            this._x = new SvgUnit(0.0f);
-            this._y = new SvgUnit(0.0f);
-            this._width = new SvgUnit(0.0f);
-            this._height = new SvgUnit(0.0f);
+            get { return _width; }
+            set { _width = value; Attributes["width"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the height of the pattern.
+        /// </summary>
+        [SvgAttribute("height")]
+        public SvgUnit Height
+        {
+            get { return _height; }
+            set { _height = value; Attributes["height"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the width of the pattern.
+        /// </summary>
+        [SvgAttribute("patternUnits")]
+        public SvgCoordinateUnits PatternUnits
+        {
+            get { return _patternUnits ?? SvgCoordinateUnits.ObjectBoundingBox; }
+            set { _patternUnits = value; Attributes["patternUnits"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the width of the pattern.
+        /// </summary>
+        [SvgAttribute("patternContentUnits")]
+        public SvgCoordinateUnits PatternContentUnits
+        {
+            get { return _patternContentUnits ?? SvgCoordinateUnits.UserSpaceOnUse; }
+            set { _patternContentUnits = value; Attributes["patternContentUnits"] = value; }
+        }
+
+        /// <summary>
+        /// Specifies a supplemental transformation which is applied on top of any 
+        /// transformations necessary to create a new pattern coordinate system.
+        /// </summary>
+        [SvgAttribute("viewBox")]
+        public SvgViewBox ViewBox
+        {
+            get { return _viewBox; }
+            set { _viewBox = value; Attributes["viewBox"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets another gradient fill from which to inherit the stops from.
+        /// </summary>
+        [SvgAttribute("href", SvgAttributeAttribute.XLinkNamespace)]
+        public SvgDeferredPaintServer InheritGradient
+        {
+            get { return GetAttribute<SvgDeferredPaintServer>("href", false); }
+            set { Attributes["href"] = value; }
+        }
+
+        [SvgAttribute("overflow")]
+        public SvgOverflow Overflow
+        {
+            get { return GetAttribute("overflow", false, SvgOverflow.Hidden); }
+            set { Attributes["overflow"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the aspect of the viewport.
+        /// </summary>
+        /// <value></value>
+        [SvgAttribute("preserveAspectRatio")]
+        public SvgAspectRatio AspectRatio
+        {
+            get { return GetAttribute("preserveAspectRatio", false, new SvgAspectRatio(SvgPreserveAspectRatio.xMidYMid)); }
+            set { Attributes["preserveAspectRatio"] = value; }
+        }
+
+        [SvgAttribute("patternTransform")]
+        public SvgTransformCollection PatternTransform
+        {
+            get { return GetAttribute<SvgTransformCollection>("patternTransform", false); }
+            set { Attributes["patternTransform"] = value; }
+        }
+
+        private Matrix EffectivePatternTransform
+        {
+            get
+            {
+                var transform = new Matrix();
+                if (PatternTransform != null)
+                    using (var matrix = PatternTransform.GetMatrix())
+                        transform.Multiply(matrix);
+
+                return transform;
+            }
         }
 
         /// <summary>
         /// Gets a <see cref="Brush"/> representing the current paint server.
         /// </summary>
         /// <param name="renderingElement">The owner <see cref="SvgVisualElement"/>.</param>
+        /// <param name="renderer">The renderer object.</param>
         /// <param name="opacity">The opacity of the brush.</param>
-        public override Brush GetBrush(SvgVisualElement renderingElement, SvgRenderer renderer, float opacity)
+        /// <param name="forStroke">Not used.</param>
+        public override Brush GetBrush(SvgVisualElement renderingElement, ISvgRenderer renderer, float opacity, bool forStroke = false)
         {
-            // If there aren't any children, return null
-            if (this.Children.Count == 0)
-                return null;
+            var chain = new List<SvgPatternServer>();
 
-            // Can't render if there are no dimensions
-            if (this._width.Value == 0.0f || this._height.Value == 0.0f)
-                return null;
+            var curr = this;
+            do
+            {
+                chain.Add(curr);
+                curr = SvgDeferredPaintServer.TryGet<SvgPatternServer>(curr.InheritGradient, renderingElement);
+            } while (curr != null);
 
+            var firstChildren = chain.Where(p => p.Children.Count > 0).FirstOrDefault();
+            if (firstChildren == null)
+                return null;
+            var firstX = chain.Where(p => p.X != null && p.X != SvgUnit.None).FirstOrDefault();
+            var firstY = chain.Where(p => p.Y != null && p.Y != SvgUnit.None).FirstOrDefault();
+            var firstWidth = chain.Where(p => p.Width != null && p.Width != SvgUnit.None).FirstOrDefault();
+            var firstHeight = chain.Where(p => p.Height != null && p.Height != SvgUnit.None).FirstOrDefault();
+            if (firstWidth == null || firstHeight == null)
+                return null;
+            var firstPatternUnit = chain.Where(p => p._patternUnits.HasValue).FirstOrDefault();
+            var firstPatternContentUnit = chain.Where(p => p._patternContentUnits.HasValue).FirstOrDefault();
+            var firstViewBox = chain.Where(p => p.ViewBox != null && p.ViewBox != SvgViewBox.Empty).FirstOrDefault();
+
+            var xUnit = firstX == null ? new SvgUnit(0f) : firstX.X;
+            var yUnit = firstY == null ? new SvgUnit(0f) : firstY.Y;
+            var widthUnit = firstWidth.Width;
+            var heightUnit = firstHeight.Height;
+
+            var patternUnits = firstPatternUnit == null ? SvgCoordinateUnits.ObjectBoundingBox : firstPatternUnit.PatternUnits;
+            var patternContentUnits = firstPatternContentUnit == null ? SvgCoordinateUnits.UserSpaceOnUse : firstPatternContentUnit.PatternContentUnits;
+            var viewBox = firstViewBox == null ? SvgViewBox.Empty : firstViewBox.ViewBox;
+
+            var isPatternObjectBoundingBox = patternUnits == SvgCoordinateUnits.ObjectBoundingBox;
             try
             {
-                if (this.PatternUnits == SvgCoordinateUnits.ObjectBoundingBox) renderer.Boundable(renderingElement);
+                if (isPatternObjectBoundingBox)
+                    renderer.SetBoundable(renderingElement);
 
-                float width = this._width.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this);
-                float height = this._height.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
+                var x = xUnit.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this);
+                var y = yUnit.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
+                var width = widthUnit.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this);
+                var height = heightUnit.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
 
-                Matrix patternMatrix = new Matrix();
-                // Apply a translate if needed
-                if (this._x.Value > 0.0f || this._y.Value > 0.0f)
+                if (isPatternObjectBoundingBox)
                 {
-                    float x = this._x.ToDeviceValue(renderer, UnitRenderingType.HorizontalOffset, this);
-                    float y = this._y.ToDeviceValue(renderer, UnitRenderingType.VerticalOffset, this);
+                    var bounds = renderer.GetBoundable().CalculateBounds();    // Boundary without stroke is expect...
 
-                    patternMatrix.Translate(x + -1.0f, y + -1.0f);
+                    if (xUnit.Type != SvgUnitType.Percentage)
+                        x *= bounds.Width;
+                    if (yUnit.Type != SvgUnitType.Percentage)
+                        y *= bounds.Height;
+                    if (widthUnit.Type != SvgUnitType.Percentage)
+                        width *= bounds.Width;
+                    if (heightUnit.Type != SvgUnitType.Percentage)
+                        height *= bounds.Height;
+                    x += bounds.X;
+                    y += bounds.Y;
                 }
-                else
-                {
-                    patternMatrix.Translate(-1, -1);
-                }
 
-                if (this.ViewBox.Height > 0 || this.ViewBox.Width > 0)
+                var tile = new Bitmap((int)Math.Ceiling(width), (int)Math.Ceiling(height));
+                using (var tileRenderer = SvgRenderer.FromImage(tile))
                 {
-                    patternMatrix.Scale(this.Width.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this) / this.ViewBox.Width,
-                                        this.Height.ToDeviceValue(renderer, UnitRenderingType.Vertical, this) / this.ViewBox.Height);
-                }
-
-                Bitmap image = new Bitmap((int)width, (int)height);
-                using (SvgRenderer iRenderer = SvgRenderer.FromImage(image))
-                {
-                    iRenderer.Boundable((_patternContentUnits == SvgCoordinateUnits.ObjectBoundingBox) ? new GenericBoundable(0, 0, width, height) : renderer.Boundable());
-                    iRenderer.Transform = patternMatrix;
-                    iRenderer.CompositingQuality = CompositingQuality.HighQuality;
-                    iRenderer.SmoothingMode = SmoothingMode.AntiAlias;
-                    iRenderer.PixelOffsetMode = PixelOffsetMode.Half;
-
-                    foreach (SvgElement child in this.Children)
+                    tileRenderer.SetBoundable(renderingElement);
+                    if (viewBox != SvgViewBox.Empty)
                     {
-                        child.RenderElement(iRenderer);
+                        var bounds = tileRenderer.GetBoundable().CalculateBounds();
+                        tileRenderer.ScaleTransform(width / viewBox.Width, height / viewBox.Height);
+                    }
+                    else if (patternContentUnits == SvgCoordinateUnits.ObjectBoundingBox)
+                    {
+                        var bounds = tileRenderer.GetBoundable().CalculateBounds();
+                        tileRenderer.ScaleTransform(bounds.Width, bounds.Height);
                     }
 
-                    iRenderer.Save();
+                    foreach (var child in firstChildren.Children)
+                        child.RenderElement(tileRenderer);
                 }
 
-                image.Save(string.Format(@"C:\test{0:D3}.png", imgNumber++));
-
-                TextureBrush textureBrush = new TextureBrush(image);
-
-                return textureBrush;
+                using (var transform = EffectivePatternTransform)
+                {
+                    var textureBrush = new TextureBrush(tile, new RectangleF(0f, 0f, width, height))
+                    {
+                        Transform = transform
+                    };
+                    textureBrush.TranslateTransform(x, y);
+                    return textureBrush;
+                }
             }
             finally
             {
-                if (this.PatternUnits == SvgCoordinateUnits.ObjectBoundingBox) renderer.PopBoundable();
+                if (isPatternObjectBoundingBox)
+                    renderer.PopBoundable();
             }
         }
 
-        private static int imgNumber = 0;
-
-
-
-		public override SvgElement DeepCopy()
-		{
-			return DeepCopy<SvgPatternServer>();
-		}
-
-
-		public override SvgElement DeepCopy<T>()
-		{
-			var newObj = base.DeepCopy<T>() as SvgPatternServer;
-			newObj.Overflow = this.Overflow;
-			newObj.ViewBox = this.ViewBox;
-			newObj.AspectRatio = this.AspectRatio;
-			newObj.X = this.X;
-			newObj.Y = this.Y;
-			newObj.Width = this.Width;
-			newObj.Height = this.Height;
-			return newObj;
-
-		}
-
-        public SvgCoordinateUnits GetUnits()
+        public override SvgElement DeepCopy()
         {
-            return _patternUnits;
+            return DeepCopy<SvgPatternServer>();
+        }
+
+        public override SvgElement DeepCopy<T>()
+        {
+            var newObj = base.DeepCopy<T>() as SvgPatternServer;
+
+            newObj._x = _x;
+            newObj._y = _y;
+            newObj._width = _width;
+            newObj._height = _height;
+            newObj._patternUnits = _patternUnits;
+            newObj._patternContentUnits = _patternContentUnits;
+            newObj._viewBox = _viewBox;
+            return newObj;
         }
     }
 }

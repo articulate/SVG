@@ -1,28 +1,31 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Drawing.Drawing2D;
 
 namespace Svg.Pathing
 {
     public sealed class SvgClosePathSegment : SvgPathSegment
     {
-        public override void AddToPath(System.Drawing.Drawing2D.GraphicsPath graphicsPath)
+        public override void AddToPath(GraphicsPath graphicsPath)
         {
-            // Important for custom line caps.  Force the path the close with an explicit line, not just an implicit close of the figure.
-            if (graphicsPath.PointCount > 0 && !graphicsPath.PathPoints[0].Equals(graphicsPath.PathPoints[graphicsPath.PathPoints.Length - 1]))
+            var pathData = graphicsPath.PathData;
+
+            if (pathData.Points.Length > 0)
             {
-                int i = graphicsPath.PathTypes.Length - 1;
-                while (i >= 0 && graphicsPath.PathTypes[i] > 0) i--;
-                if (i < 0) i = 0;
-                graphicsPath.AddLine(graphicsPath.PathPoints[graphicsPath.PathPoints.Length - 1], graphicsPath.PathPoints[i]);
+                // Important for custom line caps. Force the path the close with an explicit line, not just an implicit close of the figure.
+                var last = pathData.Points.Length - 1;
+                if (!pathData.Points[0].Equals(pathData.Points[last]))
+                {
+                    var i = last;
+                    while (i > 0 && pathData.Types[i] > 0) --i;
+                    graphicsPath.AddLine(pathData.Points[last], pathData.Points[i]);
+                }
+
+                graphicsPath.CloseFigure();
             }
-            graphicsPath.CloseFigure();
         }
 
         public override string ToString()
         {
             return "z";
         }
-
     }
 }

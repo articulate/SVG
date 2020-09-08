@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-using ExCSS.Model;
-using ExCSS.Model.TextBlocks;
+using Svg.ExCSS.Model;
+using Svg.ExCSS.Model.TextBlocks;
 
 // ReSharper disable once CheckNamespace
-namespace ExCSS
+namespace Svg.ExCSS
 {
     sealed class Lexer
     {
@@ -716,6 +716,10 @@ namespace ExCSS
                 if (current.IsDigit())
                 {
                     _buffer.Append(current);
+                }
+                else if ("eE%-".IndexOf(current) >= 0)
+                {
+                    break;
                 }
                 else if (current.IsNameStart())
                 {

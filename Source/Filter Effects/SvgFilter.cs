@@ -1,10 +1,7 @@
-using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Text;
+﻿using System;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using Svg.DataTypes;
 
 namespace Svg.FilterEffects
@@ -15,30 +12,39 @@ namespace Svg.FilterEffects
     [SvgElement("filter")]
     public sealed class SvgFilter : SvgElement
     {
-        private Bitmap sourceGraphic;
-        private Bitmap sourceAlpha;
-
-	
-		/// <summary>
-		/// Gets or sets the position where the left point of the filter.
-		/// </summary>
-		[SvgAttribute("x")]
-		public SvgUnit X
+        [SvgAttribute("filterUnits")]
+        public SvgCoordinateUnits FilterUnits
         {
-            get { return this.Attributes.GetAttribute<SvgUnit>("x"); }
-            set { this.Attributes["x"] = value; }
+            get { return GetAttribute("filterUnits", false, SvgCoordinateUnits.ObjectBoundingBox); }
+            set { Attributes["filterUnits"] = value; }
         }
 
-		/// <summary>
-		/// Gets or sets the position where the top point of the filter.
-		/// </summary>
-		[SvgAttribute("y")]
-		public SvgUnit Y 
+        [SvgAttribute("primitiveUnits")]
+        public SvgCoordinateUnits PrimitiveUnits
         {
-            get { return this.Attributes.GetAttribute<SvgUnit>("y"); }
-            set { this.Attributes["y"] = value; }
+            get { return GetAttribute("primitiveUnits", false, SvgCoordinateUnits.UserSpaceOnUse); }
+            set { Attributes["primitiveUnits"] = value; }
         }
 
+        /// <summary>
+        /// Gets or sets the position where the left point of the filter.
+        /// </summary>
+        [SvgAttribute("x")]
+        public SvgUnit X
+        {
+            get { return GetAttribute("x", false, new SvgUnit(SvgUnitType.Percentage, -10f)); }
+            set { Attributes["x"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the position where the top point of the filter.
+        /// </summary>
+        [SvgAttribute("y")]
+        public SvgUnit Y
+        {
+            get { return GetAttribute("y", false, new SvgUnit(SvgUnitType.Percentage, -10f)); }
+            set { Attributes["y"] = value; }
+        }
 
         /// <summary>
         /// Gets or sets the width of the resulting filter graphic.
@@ -46,8 +52,8 @@ namespace Svg.FilterEffects
         [SvgAttribute("width")]
         public SvgUnit Width
         {
-            get { return this.Attributes.GetAttribute<SvgUnit>("width"); }
-            set { this.Attributes["width"] = value; }
+            get { return GetAttribute("width", false, new SvgUnit(SvgUnitType.Percentage, 120f)); }
+            set { Attributes["width"] = value; }
         }
 
         /// <summary>
@@ -56,167 +62,83 @@ namespace Svg.FilterEffects
         [SvgAttribute("height")]
         public SvgUnit Height
         {
-            get { return this.Attributes.GetAttribute<SvgUnit>("height"); }
-            set { this.Attributes["height"] = value; }
-        }
-
-
-        /// <summary>
-		/// Gets or sets the color-interpolation-filters of the resulting filter graphic.
-		/// NOT currently mapped through to bitmap
-        /// </summary>
-        [SvgAttribute("color-interpolation-filters")]
-        public SvgColourInterpolation ColorInterpolationFilters
-        {
-            get { return this.Attributes.GetAttribute<SvgColourInterpolation>("color-interpolation-filters"); }
-            set { this.Attributes["color-interpolation-filters"] = value; }
-        }
-
-
-        internal Dictionary<string, Func<SvgVisualElement, SvgRenderer, Bitmap>> Buffer { get; private set; }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SvgFilter"/> class.
-        /// </summary>
-        public SvgFilter()
-        {
-            this.Buffer = new Dictionary<string, Func<SvgVisualElement, SvgRenderer, Bitmap>>();
+            get { return GetAttribute("height", false, new SvgUnit(SvgUnitType.Percentage, 120f)); }
+            set { Attributes["height"] = value; }
         }
 
         /// <summary>
-        /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="SvgRenderer"/> object.
+        /// Gets or sets reference to another filter element within the current document fragment.
         /// </summary>
-        /// <param name="renderer">The <see cref="SvgRenderer"/> object to render to.</param>
-        protected override void Render(SvgRenderer renderer)
+        [SvgAttribute("href", SvgAttributeAttribute.XLinkNamespace)]
+        public Uri Href
         {
-			base.RenderChildren(renderer);
+            get { return GetAttribute<Uri>("href", false); }
+            set { Attributes["href"] = value; }
         }
 
         /// <summary>
-        /// Creates a new object that is a copy of the current instance.
+        /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="ISvgRenderer"/> object.
         /// </summary>
-        /// <returns>
-        /// A new object that is a copy of this instance.
-        /// </returns>
-        public override object Clone()
+        /// <param name="renderer">The <see cref="ISvgRenderer"/> object to render to.</param>
+        protected override void Render(ISvgRenderer renderer)
         {
-            return (SvgFilter)this.MemberwiseClone();
+            RenderChildren(renderer);
         }
 
-        public void ApplyFilter(SvgVisualElement element, SvgRenderer renderer)
+        private Matrix GetTransform(SvgVisualElement element)
         {
-            this.Buffer.Clear();
-            this.PopulateDefaults(element, renderer);
+            var transformMatrix = new Matrix();
+            if (element.Transforms != null)
+                using (var matrix = element.Transforms.GetMatrix())
+                    transformMatrix.Multiply(matrix);
+            return transformMatrix;
+        }
 
-            IEnumerable<SvgFilterPrimitive> primitives = this.Children.OfType<SvgFilterPrimitive>();
+        private RectangleF GetPathBounds(SvgVisualElement element, ISvgRenderer renderer, Matrix transform)
+        {
+            var bounds = element is SvgGroup ? element.Path(renderer).GetBounds() : element.CalculateBounds();
+                var pts = new PointF[] { bounds.Location, new PointF(bounds.Right, bounds.Bottom) };
+            transform.TransformPoints(pts);
 
-            if (primitives.Count() > 0)
+            return new RectangleF(Math.Min(pts[0].X, pts[1].X), Math.Min(pts[0].Y, pts[1].Y),
+                                  Math.Abs(pts[0].X - pts[1].X), Math.Abs(pts[0].Y - pts[1].Y));
+        }
+
+        public void ApplyFilter(SvgVisualElement element, ISvgRenderer renderer, Action<ISvgRenderer> renderMethod)
+        {
+            using (var transform = GetTransform(element))
             {
-                foreach (var primitive in primitives)
+                var bounds = GetPathBounds(element, renderer, transform);
+                if (bounds.Width == 0f || bounds.Height == 0f)
+                    return;
+
+                var inflate = 0.5f;
+                using (var buffer = new ImageBuffer(bounds, inflate, renderer, renderMethod) { Transform = transform })
                 {
-                    this.Buffer.Add(primitive.Result, (e, r) => primitive.Process());
-                }
+                    foreach (var primitive in Children.OfType<SvgFilterPrimitive>())
+                        primitive.Process(buffer);
 
-                // Render the final filtered image
-                renderer.DrawImageUnscaled(this.Buffer.Last().Value(element, renderer), new Point(0, 0));
-            }
-        }
+                    // Render the final filtered image
+                    var bufferImg = buffer.Buffer;
+                    var imgDraw = RectangleF.Inflate(bounds, inflate * bounds.Width, inflate * bounds.Height);
 
-        private void PopulateDefaults(SvgVisualElement element, SvgRenderer renderer)
-        {
-            this.ResetDefaults();
-
-            this.Buffer.Add(SvgFilterPrimitive.SourceGraphic, this.CreateSourceGraphic);
-            this.Buffer.Add(SvgFilterPrimitive.SourceAlpha, this.CreateSourceAlpha);
-        }
-
-        #region Defaults
-
-        private void ResetDefaults()
-        {
-            if (this.sourceGraphic != null)
-            {
-                this.sourceGraphic.Dispose();
-                this.sourceGraphic = null;
-            }
-
-            if (this.sourceAlpha != null)
-            {
-                this.sourceAlpha.Dispose();
-                this.sourceAlpha = null;
-            }
-        }
-
-        private Bitmap CreateSourceGraphic(SvgVisualElement element, SvgRenderer renderer)
-        {
-            if (this.sourceGraphic == null)
-            {
-                RectangleF bounds = element.Path(renderer).GetBounds();
-                this.sourceGraphic = new Bitmap((int)bounds.Width, (int)bounds.Height);
-
-                using (var graphics = Graphics.FromImage(this.sourceGraphic))
-                {
-                    graphics.Clip = renderer.Clip;
-                    graphics.Transform = renderer.Transform;
-
-                    element.RenderElement(SvgRenderer.FromGraphics(graphics));
-
-                    graphics.Save();
+                    var prevClip = renderer.GetClip();
+                    try
+                    {
+                        renderer.SetClip(new Region(imgDraw));
+                        renderer.DrawImage(bufferImg, imgDraw, new RectangleF(bounds.X, bounds.Y, imgDraw.Width, imgDraw.Height), GraphicsUnit.Pixel);
+                    }
+                    finally
+                    {
+                        renderer.SetClip(prevClip);
+                    }
                 }
             }
-
-            return this.sourceGraphic;
         }
 
-        private Bitmap CreateSourceAlpha(SvgVisualElement element, SvgRenderer renderer)
+        public override SvgElement DeepCopy()
         {
-            if (this.sourceAlpha == null)
-            {
-                Bitmap source = this.Buffer[SvgFilterPrimitive.SourceGraphic](element, renderer);
-
-                float[][] colorMatrixElements = {
-                   new float[] {0, 0, 0, 0, 0},        // red
-                   new float[] {0, 0, 0, 0, 0},        // green
-                   new float[] {0, 0, 0, 0, 0},        // blue
-                   new float[] {0, 0, 0, 1, 1},        // alpha
-                   new float[] {0, 0, 0, 0, 0} };    // translations
-
-                var matrix = new ColorMatrix(colorMatrixElements);
-
-                ImageAttributes attributes = new ImageAttributes();
-                attributes.SetColorMatrix(matrix);
-
-                this.sourceAlpha = new Bitmap(source.Width, source.Height);
-
-                using (var graphics = Graphics.FromImage(this.sourceAlpha))
-                {
-
-                    graphics.DrawImage(source, new Rectangle(0, 0, source.Width, source.Height), 0, 0,
-                          source.Width, source.Height, GraphicsUnit.Pixel, attributes);
-                    graphics.Save();
-                }
-            }
-
-            return this.sourceAlpha;
+            return DeepCopy<SvgFilter>();
         }
-        #endregion
-
-
-
-		public override SvgElement DeepCopy()
-		{
-			return DeepCopy<SvgFilter>();
-		}
-
-		public override SvgElement DeepCopy<T>()
-		{
-			var newObj = base.DeepCopy<T>() as SvgFilter;
-			newObj.Height = this.Height;
-			newObj.Width = this.Width;
-			newObj.X = this.X;
-			newObj.Y = this.Y;
-			newObj.ColorInterpolationFilters = this.ColorInterpolationFilters;
-			return newObj;
-		}
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 
@@ -10,18 +10,18 @@ namespace Svg
     [SvgElement("svg")]
     public class SvgFragment : SvgElement, ISvgViewPort, ISvgBoundable
     {
+        private SvgUnit _x = 0f;
+        private SvgUnit _y = 0f;
+
         /// <summary>
         /// Gets the SVG namespace string.
         /// </summary>
-        public static readonly Uri Namespace = new Uri("http://www.w3.org/2000/svg");
+        public static readonly Uri Namespace = new Uri(SvgAttributeAttribute.SvgNamespace);
 
         RectangleF ISvgBoundable.CalculateBounds()
         {
             return new RectangleF(PointF.Empty, GetDimensions());
         }
-
-        private SvgUnit _x;
-        private SvgUnit _y;
 
         /// <summary>
         /// Gets or sets the position where the left point of the svg should start.
@@ -32,11 +32,9 @@ namespace Svg
             get { return _x; }
             set
             {
-                if(_x != value)
-                {
+                if (_x != value)
                     _x = value;
-                    OnAttributeChanged(new AttributeEventArgs{ Attribute = "x", Value = value });
-                }
+                Attributes["x"] = value;
             }
         }
 
@@ -49,11 +47,9 @@ namespace Svg
             get { return _y; }
             set
             {
-                if(_y != value)
-                {
+                if (_y != value)
                     _y = value;
-                    OnAttributeChanged(new AttributeEventArgs{ Attribute = "y", Value = value });
-                }
+                Attributes["y"] = value;
             }
         }
 
@@ -64,8 +60,8 @@ namespace Svg
         [SvgAttribute("width")]
         public SvgUnit Width
         {
-            get { return this.Attributes.GetAttribute<SvgUnit>("width"); }
-            set { this.Attributes["width"] = value; }
+            get { return GetAttribute("width", false, new SvgUnit(SvgUnitType.Percentage, 100f)); }
+            set { Attributes["width"] = value; }
         }
 
         /// <summary>
@@ -75,15 +71,15 @@ namespace Svg
         [SvgAttribute("height")]
         public SvgUnit Height
         {
-            get { return this.Attributes.GetAttribute<SvgUnit>("height"); }
-            set { this.Attributes["height"] = value; }
+            get { return GetAttribute("height", false, new SvgUnit(SvgUnitType.Percentage, 100f)); }
+            set { Attributes["height"] = value; }
         }
 
         [SvgAttribute("overflow")]
         public virtual SvgOverflow Overflow
         {
-            get { return this.Attributes.GetAttribute<SvgOverflow>("overflow"); }
-            set { this.Attributes["overflow"] = value; }
+            get { return GetAttribute("overflow", false, SvgOverflow.Hidden); }
+            set { Attributes["overflow"] = value; }
         }
 
         /// <summary>
@@ -93,8 +89,8 @@ namespace Svg
         [SvgAttribute("viewBox")]
         public SvgViewBox ViewBox
         {
-            get { return this.Attributes.GetAttribute<SvgViewBox>("viewBox"); }
-            set { this.Attributes["viewBox"] = value; }
+            get { return GetAttribute("viewBox", false, SvgViewBox.Empty); }
+            set { Attributes["viewBox"] = value; }
         }
 
         /// <summary>
@@ -104,150 +100,119 @@ namespace Svg
         [SvgAttribute("preserveAspectRatio")]
         public SvgAspectRatio AspectRatio
         {
-            get { return this.Attributes.GetAttribute<SvgAspectRatio>("preserveAspectRatio"); }
-            set { this.Attributes["preserveAspectRatio"] = value; }
+            get { return GetAttribute("preserveAspectRatio", false, new SvgAspectRatio(SvgPreserveAspectRatio.xMidYMid)); }
+            set { Attributes["preserveAspectRatio"] = value; }
         }
 
         /// <summary>
         /// Refers to the size of the font from baseline to baseline when multiple lines of text are set solid in a multiline layout environment.
         /// </summary>
         [SvgAttribute("font-size")]
-        public virtual SvgUnit FontSize
+        public override SvgUnit FontSize
         {
-            get { return (this.Attributes["font-size"] == null) ? SvgUnit.Empty : (SvgUnit)this.Attributes["font-size"]; }
-            set { this.Attributes["font-size"] = value; }
+            get { return GetAttribute("font-size", true, SvgUnit.Empty); }
+            set { Attributes["font-size"] = value; }
         }
 
         /// <summary>
         /// Indicates which font family is to be used to render the text.
         /// </summary>
         [SvgAttribute("font-family")]
-        public virtual string FontFamily
+        public override string FontFamily
         {
-            get { return this.Attributes["font-family"] as string; }
-            set { this.Attributes["font-family"] = value; }
+            get { return GetAttribute<string>("font-family", true); }
+            set { Attributes["font-family"] = value; }
+        }
+
+        public override XmlSpaceHandling SpaceHandling
+        {
+            get { return GetAttribute("space", true, XmlSpaceHandling.@default); }
+            set { base.SpaceHandling = value; IsPathDirty = true; }
         }
 
         /// <summary>
-        /// Applies the required transforms to <see cref="SvgRenderer"/>.
+        /// Applies the required transforms to <see cref="ISvgRenderer"/>.
         /// </summary>
-        /// <param name="renderer">The <see cref="SvgRenderer"/> to be transformed.</param>
-        protected internal override bool PushTransforms(SvgRenderer renderer)
+        /// <param name="renderer">The <see cref="ISvgRenderer"/> to be transformed.</param>
+        protected internal override bool PushTransforms(ISvgRenderer renderer)
         {
-            if (!base.PushTransforms(renderer)) return false;
-
-            if (!this.ViewBox.Equals(SvgViewBox.Empty))
-            {
-                var width = this.Width.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this);
-                var height = this.Height.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
-
-                var fScaleX = width / this.ViewBox.Width;
-                var fScaleY = height / this.ViewBox.Height;
-                var fMinX = -this.ViewBox.MinX * fScaleX;
-                var fMinY = -this.ViewBox.MinY * fScaleY;
-
-                if (AspectRatio.Align != SvgPreserveAspectRatio.none)
-                {
-                    if (AspectRatio.Slice)
-                    {
-                        fScaleX = Math.Max(fScaleX, fScaleY);
-                        fScaleY = Math.Max(fScaleX, fScaleY);
-                    }
-                    else
-                    {
-                        fScaleX = Math.Min(fScaleX, fScaleY);
-                        fScaleY = Math.Min(fScaleX, fScaleY);
-                    }
-                    float fViewMidX = (this.ViewBox.Width / 2) * fScaleX;
-                    float fViewMidY = (this.ViewBox.Height / 2) * fScaleY;
-                    float fMidX = width / 2;
-                    float fMidY = height / 2;
-
-                    switch (AspectRatio.Align)
-                    {
-                        case SvgPreserveAspectRatio.xMinYMin:
-                            break;
-                        case SvgPreserveAspectRatio.xMidYMin:
-                            fMinX += fMidX - fViewMidX;
-                            break;
-                        case SvgPreserveAspectRatio.xMaxYMin:
-                            fMinX += width - this.ViewBox.Width * fScaleX;
-                            break;
-                        case SvgPreserveAspectRatio.xMinYMid:
-                            fMinY += fMidY - fViewMidY;
-                            break;
-                        case SvgPreserveAspectRatio.xMidYMid:
-                            fMinX += fMidX - fViewMidX;
-                            fMinY += fMidY - fViewMidY;
-                            break;
-                        case SvgPreserveAspectRatio.xMaxYMid:
-                            fMinX += width - this.ViewBox.Width * fScaleX;
-                            fMinY += fMidY - fViewMidY;
-                            break;
-                        case SvgPreserveAspectRatio.xMinYMax:
-                            fMinY += height - this.ViewBox.Height * fScaleY;
-                            break;
-                        case SvgPreserveAspectRatio.xMidYMax:
-                            fMinX += fMidX - fViewMidX;
-                            fMinY += height - this.ViewBox.Height * fScaleY;
-                            break;
-                        case SvgPreserveAspectRatio.xMaxYMax:
-                            fMinX += width - this.ViewBox.Width * fScaleX;
-                            fMinY += height - this.ViewBox.Height * fScaleY;
-                            break;
-                        default:
-                            break;
-                    }
-                }
-
-                var x = _x.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this);
-                var y = _y.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
-
-                renderer.AddClip(new Region(new RectangleF(x, y, width, height)));
-                renderer.TranslateTransform(x, y, MatrixOrder.Prepend);
-                renderer.TranslateTransform(fMinX, fMinY, MatrixOrder.Prepend);
-                renderer.ScaleTransform(fScaleX, fScaleY, MatrixOrder.Prepend);
-            }
-
+            if (!base.PushTransforms(renderer))
+                return false;
+            ViewBox.AddViewBoxTransform(AspectRatio, renderer, this);
             return true;
         }
 
-        /// <summary>
-        /// Gets the <see cref="GraphicsPath"/> for this element.
-        /// </summary>
-        /// <value></value>
-        public GraphicsPath CreatePath()
+        protected override void Render(ISvgRenderer renderer)
         {
-            var path = new GraphicsPath();
-
-            AddPaths(this, path);
-
-            return path;
+            switch (this.Overflow)
+            {
+                case SvgOverflow.Auto:
+                case SvgOverflow.Visible:
+                case SvgOverflow.Inherit:
+                    base.Render(renderer);
+                    break;
+                default:
+                    var prevClip = renderer.GetClip();
+                    try
+                    {
+                        var size = this.Parent == null ? renderer.GetBoundable().CalculateBounds().Size : GetDimensions();
+                        var clip = new RectangleF(this.X.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this),
+                                                  this.Y.ToDeviceValue(renderer, UnitRenderingType.Vertical, this),
+                                                  size.Width, size.Height);
+                        renderer.SetClip(new Region(clip), CombineMode.Intersect);
+                        try
+                        {
+                            renderer.SetBoundable(new GenericBoundable(clip));
+                            base.Render(renderer);
+                        }
+                        finally
+                        {
+                            renderer.PopBoundable();
+                        }
+                    }
+                    finally
+                    {
+                        renderer.SetClip(prevClip, CombineMode.Replace);
+                    }
+                    break;
+            }
         }
 
         /// <summary>
         /// Gets the bounds of the svg element.
         /// </summary>
-        /// <returns>The bounds.</returns>
+        /// <value>The bounds.</value>
         public RectangleF CalculateBounds()
         {
-            using (var path = CreatePath())
+            var bounds = new RectangleF();
+            foreach (var child in this.Children)
             {
-                return path.GetBounds();
-            }
-        }
+                RectangleF childBounds = new RectangleF();
+                if (child is SvgFragment)
+                {
+                    childBounds = ((SvgFragment)child).CalculateBounds();
+                    childBounds.Offset(((SvgFragment)child).X, ((SvgFragment)child).Y);
+                }
+                else if (child is SvgVisualElement)
+                {
+                    childBounds = ((SvgVisualElement)child).CalculateBounds();
+                }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SvgFragment"/> class.
-        /// </summary>
-        public SvgFragment()
-        {
-            _x = 0.0f;
-            _y = 0.0f;
-            this.Height = new SvgUnit(SvgUnitType.Percentage, 100.0f);
-            this.Width = new SvgUnit(SvgUnitType.Percentage, 100.0f);
-            this.ViewBox = SvgViewBox.Empty;
-            this.AspectRatio = new SvgAspectRatio(SvgPreserveAspectRatio.xMidYMid);
+                if (!childBounds.IsEmpty)
+                {
+                    if (bounds.IsEmpty)
+                    {
+                        bounds = childBounds;
+                    }
+                    else
+                    {
+                        bounds = RectangleF.Union(bounds, childBounds);
+                    }
+                }
+            }
+
+            return TransformedBounds(bounds);
+            
         }
 
         public SizeF GetDimensions()
@@ -256,7 +221,7 @@ namespace Svg
             var isWidthperc = Width.Type == SvgUnitType.Percentage;
             var isHeightperc = Height.Type == SvgUnitType.Percentage;
 
-            RectangleF bounds = new RectangleF();
+            var bounds = new RectangleF();
             if (isWidthperc || isHeightperc)
             {
                 if (ViewBox.Width > 0 && ViewBox.Height > 0)
@@ -297,14 +262,10 @@ namespace Svg
         public override SvgElement DeepCopy<T>()
         {
             var newObj = base.DeepCopy<T>() as SvgFragment;
-            newObj.Height = this.Height;
-            newObj.Width = this.Width;
-            newObj.Overflow = this.Overflow;
-            newObj.ViewBox = this.ViewBox;
-            newObj.AspectRatio = this.AspectRatio;
+
+            newObj._x = _x;
+            newObj._y = _y;
             return newObj;
         }
-
-
     }
 }

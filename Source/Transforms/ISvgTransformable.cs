@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-
 using Svg.Transforms;
 
 namespace Svg
@@ -18,14 +12,14 @@ namespace Svg
         /// </summary>
         SvgTransformCollection Transforms { get; set; }
         /// <summary>
-        /// Applies the required transforms to <see cref="SvgRenderer"/>.
+        /// Applies the required transforms to <see cref="ISvgRenderer"/>.
         /// </summary>
-        /// <param name="renderer">The <see cref="SvgRenderer"/> to be transformed.</param>
-        void PushTransforms(SvgRenderer renderer);
+        /// <param name="renderer">The <see cref="ISvgRenderer"/> to be transformed.</param>
+        void PushTransforms(ISvgRenderer renderer);
         /// <summary>
-        /// Removes any previously applied transforms from the specified <see cref="SvgRenderer"/>.
+        /// Removes any previously applied transforms from the specified <see cref="ISvgRenderer"/>.
         /// </summary>
-        /// <param name="renderer">The <see cref="SvgRenderer"/> that should have transforms removed.</param>
-        void PopTransforms(SvgRenderer renderer);
+        /// <param name="renderer">The <see cref="ISvgRenderer"/> that should have transforms removed.</param>
+        void PopTransforms(ISvgRenderer renderer);
     }
 }

@@ -27,4 +27,14 @@ To update the NuGet package that is consumed, do the following.
 2. Incremement the version in [appveyor.yml](./appveyor.yml#L1).
 3. Issue a PR for your changes and get them reviewed, signed-off, and merged as usual.
 4. Once the PR is merged, an AppVeyor build will be triggered which will produce the version of the package you specified in #2.
+In the Desktop repo, update the references to the new version
+
+## Building
+
+To update the NuGet package that is consumed, do the following.
+
+1. Make your desired changes.
+2. Incremement the version in [appveyor.yml](./appveyor.yml#L1).
+3. Issue a PR for your changes and get them reviewed, signed-off, and merged as usual.
+4. Once the PR is merged, an AppVeyor build will be triggered which will produce the version of the package you specified in #2.
 In the Desktop repo, update the references to the new version.

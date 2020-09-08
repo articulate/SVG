@@ -1,16 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 namespace Svg
 {
     [TypeConverter(typeof(SvgFontVariantConverter))]
     public enum SvgFontVariant
     {
-        normal,
-        smallcaps,
-        inherit
+        Normal,
+        SmallCaps,
+        Inherit
     }
 }
